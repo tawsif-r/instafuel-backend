@@ -2,10 +2,11 @@
 ## Table Of Content
 - [Introduction](#introduction)
 - [Choice of template for dotnet](#choice-of-template-for-dotnet)
+- []()
 
 ## Introduction
-**Product Name**: Fuel On-Demand (Working Title)
 
+**Product Name**: Fuel On-Demand (Working Title)
 
 **Overview**: A multi-entity mobile and web platform that enables on-demand delivery of vehicle and household fuels directly to customer locations.
 
@@ -18,3 +19,11 @@
 ## Choice of template for dotnet
 
 `Webapi` seems to be the best choice, however further discussion is required before reaching the decision.
+
+## Run the app
+
+Run the app with the following bash command:
+
+```bash
+dotnet watch # will rebuild the app on any change in code.
+```
