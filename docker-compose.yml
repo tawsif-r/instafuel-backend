@@ -1,0 +1,9 @@
+services:
+  db:
+    image: postgres
+    environment:
+      POSTGRES_USER: tawsif
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: instafuel
+    ports:
+      - "5432:5432"
