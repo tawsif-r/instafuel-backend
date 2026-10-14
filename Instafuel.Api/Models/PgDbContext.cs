@@ -7,5 +7,7 @@ public class PgDbContext : DbContext
     public PgDbContext(DbContextOptions<PgDbContext> options)
         : base(options)
     {
+        
     }
+    public DbSet<Test> Tests {get; set;}
 }
