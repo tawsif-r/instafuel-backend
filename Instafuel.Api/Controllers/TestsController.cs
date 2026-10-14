@@ -30,7 +30,7 @@ public class TestsController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(
-                // ex,
+                ex,
                 "Failed to retrieve test records from the database. Operation: {Operation}",
                 nameof(GetTests));
 
@@ -52,7 +52,7 @@ public class TestsController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(
-                // ex,
+                ex,
                 "Failed to create a test record in the database. Operation: {Operation}",
                 nameof(CreateTest));
 
