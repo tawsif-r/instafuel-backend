@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Configure Serilog: console + error log file
 Directory.CreateDirectory("logs");
+
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .WriteTo.Console()
@@ -13,7 +14,7 @@ Log.Logger = new LoggerConfiguration()
         "logs/app-error-.log",
         rollingInterval: RollingInterval.Day,
         restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Error,
-        outputTemplate: "{Timestamp:HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}"
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
     )
     .CreateLogger();
 
