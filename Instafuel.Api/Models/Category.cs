@@ -8,7 +8,7 @@ public class Category
     public string Slug { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
 
-    public Category? Parent { get; set; }
+    public Category? Parent { get; set; } // self ref: arekta category er Bap hoite pare.
     public ICollection<Category> Children { get; set; } = new List<Category>();
     public ICollection<Product> Products { get; set; } = new List<Product>();
 }
