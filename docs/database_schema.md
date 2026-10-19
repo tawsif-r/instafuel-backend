@@ -1,263 +1,199 @@
-# InstaFuel Database Schema
+Since your **Fuel On-Demand** project uses FastAPI and PostgreSQL with a microservice architecture, here is a sample database schema in **Mermaid ER diagram format**.
 
-## Overview
+You can paste this code into the [Mermaid Live Editor](https://mermaid.live/) to visualize the database relationships.
 
-InstaFuel uses PostgreSQL as its relational database and Entity Framework Core (EF Core) as its Object-Relational Mapper (ORM).
-
-The database supports the fuel marketplace, including customers, suppliers, products, inventory, orders, payments, refunds, and deliveries.
-
-## Entity Relationship Diagram
+### Sample Database Schema — Fuel On-Demand
 
 ```mermaid
 erDiagram
 
-    USERS {
-        uuid Id PK
-        string FullName
-        string Email
-        string Phone
-        string PasswordHash
-        boolean IsActive
-        datetime CreatedAt
-        datetime UpdatedAt
+    USER {
+        int user_id PK
+        string full_name
+        string email UK
+        string phone UK
+        string password_hash
+        string role
+        string account_status
+        datetime created_at
     }
 
-    SUPPLIERS {
-        uuid Id PK
-        string LegalName
-        string DisplayName
-        string Status
-        datetime CreatedAt
+    ADDRESS {
+        int address_id PK
+        int user_id FK
+        string address_line
+        string city
+        float latitude
+        float longitude
     }
 
-    SUPPLIER_MEMBERS {
-        uuid SupplierId PK, FK
-        uuid UserId PK, FK
-        string MemberRole
-        datetime CreatedAt
+    VEHICLE {
+        int vehicle_id PK
+        int user_id FK
+        string vehicle_type
+        string registration_number
+        string fuel_preference
     }
 
-    SUPPLIER_LOCATIONS {
-        uuid Id PK
-        uuid SupplierId FK
-        string Name
-        string AddressLine
-        string City
-        decimal Latitude
-        decimal Longitude
-        boolean IsActive
-        datetime CreatedAt
+    SUPPLIER {
+        int supplier_id PK
+        int user_id FK
+        string business_name
+        string station_address
+        float latitude
+        float longitude
+        boolean is_active
     }
 
-    CATEGORIES {
-        uuid Id PK
-        uuid ParentId FK
-        string Name
-        string Slug
-        boolean IsActive
+    FUEL_TYPE {
+        int fuel_type_id PK
+        string fuel_name
+        string unit
+        boolean is_active
     }
 
-    PRODUCTS {
-        uuid Id PK
-        uuid CategoryId FK
-        string Name
-        string Description
-        string ProductType
-        string UnitCode
-        string FuelGrade
-        boolean IsActive
-        datetime CreatedAt
-    }
-
-    SUPPLIER_OFFERS {
-        uuid Id PK
-        uuid SupplierId FK
-        uuid ProductId FK
-        string SellerSku
-        decimal UnitPrice
-        string Currency
-        string Status
-        datetime CreatedAt
-        datetime UpdatedAt
-    }
-
-    INVENTORY_BALANCES {
-        uuid Id PK
-        uuid SupplierLocationId FK
-        uuid SupplierOfferId FK
-        decimal QuantityOnHand
-        decimal QuantityReserved
-        datetime UpdatedAt
-    }
-
-    INVENTORY_MOVEMENTS {
-        uuid Id PK
-        uuid InventoryBalanceId FK
-        string MovementType
-        decimal QuantityDelta
-        string ReferenceType
-        uuid ReferenceId
-        string Notes
-        datetime CreatedAt
+    INVENTORY {
+        int inventory_id PK
+        int supplier_id FK
+        int fuel_type_id FK
+        float available_quantity
+        decimal price_per_unit
+        boolean is_available
     }
 
     ORDERS {
-        uuid Id PK
-        string OrderNumber
-        uuid CustomerId FK
-        string Status
-        string Currency
-        decimal Subtotal
-        decimal DeliveryFee
-        decimal DiscountAmount
-        decimal TotalAmount
-        string RecipientName
-        string RecipientPhone
-        string DeliveryAddress
-        string DeliveryCity
-        decimal DeliveryLatitude
-        decimal DeliveryLongitude
-        string CustomerNotes
-        datetime CreatedAt
-        datetime UpdatedAt
+        int order_id PK
+        int customer_id FK
+        int address_id FK
+        int supplier_id FK
+        datetime order_date
+        decimal subtotal
+        decimal delivery_charge
+        decimal total_amount
+        string payment_method
+        string order_status
     }
 
-    SUPPLIER_ORDERS {
-        uuid Id PK
-        uuid OrderId FK
-        uuid SupplierId FK
-        uuid SupplierLocationId FK
-        string Status
-        decimal Subtotal
-        datetime CreatedAt
-        datetime UpdatedAt
+    ORDER_ITEM {
+        int order_item_id PK
+        int order_id FK
+        int fuel_type_id FK
+        float quantity
+        decimal unit_price
+        decimal total_price
     }
 
-    ORDER_ITEMS {
-        uuid Id PK
-        uuid SupplierOrderId FK
-        uuid SupplierOfferId FK
-        string ProductName
-        string SellerName
-        decimal Quantity
-        string UnitCode
-        decimal UnitPrice
-        decimal LineTotal
-        datetime CreatedAt
+    PAYMENT {
+        int payment_id PK
+        int order_id FK
+        decimal amount
+        string payment_method
+        string payment_status
+        string transaction_reference
+        datetime paid_at
     }
 
-    PAYMENTS {
-        uuid Id PK
-        uuid OrderId FK
-        decimal Amount
-        string Currency
-        string Method
-        string Status
-        string ProviderReference
-        string IdempotencyKey
-        datetime PaidAt
-        datetime CreatedAt
+    RIDER {
+        int rider_id PK
+        int user_id FK
+        string license_number
+        string vehicle_number
+        string verification_status
+        boolean is_available
     }
 
-    REFUNDS {
-        uuid Id PK
-        uuid PaymentId FK
-        decimal Amount
-        string Status
-        string ProviderReference
-        datetime CreatedAt
+    DELIVERY {
+        int delivery_id PK
+        int order_id FK
+        int rider_id FK
+        datetime assigned_at
+        datetime pickup_time
+        datetime delivered_at
+        string delivery_status
     }
 
-    DELIVERIES {
-        uuid Id PK
-        uuid SupplierOrderId FK
-        uuid DeliveryAgentId FK
-        string Status
-        datetime AssignedAt
-        datetime PickedUpAt
-        datetime DeliveredAt
-        datetime CreatedAt
+    REVIEW {
+        int review_id PK
+        int customer_id FK
+        int order_id FK
+        int rating
+        string comment
+        datetime created_at
     }
 
-    DELIVERY_STATUS_HISTORY {
-        uuid Id PK
-        uuid DeliveryId FK
-        string Status
-        string Notes
-        uuid RecordedByUserId FK
-        datetime CreatedAt
-    }
+    USER ||--o{ ADDRESS : has
+    USER ||--o{ VEHICLE : owns
+    USER ||--o| SUPPLIER : operates
+    USER ||--o| RIDER : works_as
 
-    USERS ||--o{ SUPPLIER_MEMBERS : has
-    SUPPLIERS ||--o{ SUPPLIER_MEMBERS : has
+    USER ||--o{ ORDERS : places
+    ADDRESS ||--o{ ORDERS : receives
+    SUPPLIER ||--o{ ORDERS : fulfills
 
-    SUPPLIERS ||--o{ SUPPLIER_LOCATIONS : operates
-    CATEGORIES o|--o{ CATEGORIES : parent_of
-    CATEGORIES ||--o{ PRODUCTS : classifies
+    ORDERS ||--|{ ORDER_ITEM : contains
+    FUEL_TYPE ||--o{ ORDER_ITEM : identifies
 
-    PRODUCTS ||--o{ SUPPLIER_OFFERS : offered_as
-    SUPPLIERS ||--o{ SUPPLIER_OFFERS : sells
+    SUPPLIER ||--o{ INVENTORY : manages
+    FUEL_TYPE ||--o{ INVENTORY : stocked_as
 
-    SUPPLIER_LOCATIONS ||--o{ INVENTORY_BALANCES : stores
-    SUPPLIER_OFFERS ||--o{ INVENTORY_BALANCES : stocked_as
-    INVENTORY_BALANCES ||--o{ INVENTORY_MOVEMENTS : records
+    ORDERS ||--o{ PAYMENT : has
+    ORDERS ||--o{ DELIVERY : requires
+    RIDER ||--o{ DELIVERY : handles
 
-    USERS ||--o{ ORDERS : places
-    ORDERS ||--o{ SUPPLIER_ORDERS : split_into
-    SUPPLIERS ||--o{ SUPPLIER_ORDERS : fulfills
-    SUPPLIER_LOCATIONS ||--o{ SUPPLIER_ORDERS : fulfills_from
-
-    SUPPLIER_ORDERS ||--o{ ORDER_ITEMS : contains
-    SUPPLIER_OFFERS ||--o{ ORDER_ITEMS : purchased_as
-
-    ORDERS ||--o{ PAYMENTS : receives
-    PAYMENTS ||--o{ REFUNDS : may_have
-
-    SUPPLIER_ORDERS ||--o{ DELIVERIES : fulfilled_by
-    USERS o|--o{ DELIVERIES : assigned_to
-    DELIVERIES ||--o{ DELIVERY_STATUS_HISTORY : tracks
-    USERS o|--o{ DELIVERY_STATUS_HISTORY : records
+    USER ||--o{ REVIEW : writes
+    ORDERS ||--o| REVIEW : receives
 ```
 
-## Entity Responsibilities
+### How to understand this diagram
 
-| Entity | Responsibility |
+**1. USER — The central entity**
+
+The `USER` table stores common account information. A user can have a customer, rider, or supplier role. Sector Supervisors, Admins, and Super Admins can also have accounts.
+
+**2. FUEL_TYPE and INVENTORY — Fuel management**
+
+- `FUEL_TYPE` stores Petrol, Diesel, Octane, and Gas Cylinder.
+- `INVENTORY` tracks how much fuel each supplier has available and its price.
+- One supplier can stock multiple fuel types.
+
+**3. ORDERS and ORDER_ITEM — Order management**
+
+These tables represent different concepts:
+
+- `ORDERS` stores the overall order, including the customer, supplier, delivery address, and total amount.
+- `ORDER_ITEM` stores the individual fuel products and quantities included in that order.
+
+For example, one order might contain 10 litres of Petrol and 5 litres of Diesel. The order has one record in `ORDERS` and two records in `ORDER_ITEM`.
+
+**4. PAYMENT — Payment processing**
+
+The `PAYMENT` table stores payment details for online payments and Cash on Delivery (COD). The payment status can be `PENDING`, `PAID`, `FAILED`, or `REFUNDED`.
+
+**5. RIDER and DELIVERY — Delivery management**
+
+- `RIDER` stores rider-specific information and verification status.
+- `DELIVERY` connects an order with the rider responsible for delivering it.
+
+Separating `DELIVERY` from `ORDERS` makes it possible to track delivery progress independently of the order's overall status.
+
+### Important considerations for your actual project
+
+This is a **sample relational schema**, not the final production database design.
+
+For Fuel On-Demand, I recommend considering these improvements when developing the actual system:
+
+| Requirement | Recommended approach |
 |---|---|
-| Users | Stores customer, supplier-member, and delivery-agent user accounts. |
-| Suppliers | Stores supplier business information. |
-| SupplierMembers | Associates users with suppliers and their membership roles. |
-| SupplierLocations | Stores supplier branches or fuel station locations. |
-| Categories | Organizes products into a hierarchical category structure. |
-| Products | Defines the products available in the marketplace. |
-| SupplierOffers | Defines which products a supplier sells and at what price. |
-| InventoryBalances | Tracks stock and reserved quantities for offers at locations. |
-| InventoryMovements | Records inventory quantity changes. |
-| Orders | Represents the customer's overall order. |
-| SupplierOrders | Represents the supplier-specific portion of an order. |
-| OrderItems | Stores individual items in a supplier order. |
-| Payments | Tracks payment attempts and payment status. |
-| Refunds | Tracks refunds associated with payments. |
-| Deliveries | Tracks delivery assignment and fulfillment. |
-| DeliveryStatusHistory | Records delivery status changes. |
+| Multiple user roles | Use a role/permission system instead of relying only on a role string. |
+| Sector Supervisors | Add `SECTOR` and `SECTOR_SUPERVISOR` relationships. |
+| Rider preferred areas | Create `RIDER_PREFERRED_AREA` and `DELIVERY_AREA` tables. |
+| Supplier inventory | Add inventory transaction records to track stock changes. |
+| Refunds | Create a separate `REFUND` table. |
+| Order status history | Create an `ORDER_STATUS_HISTORY` table. |
+| Notifications | Create a `NOTIFICATION` table. |
+| Online payments | Store gateway references and payment event records securely. |
+| Microservice architecture | Define clear ownership of tables and data between services. |
 
-## Key Relationships
+**One important architecture note:** Since you're planning to use microservices with FastAPI and PostgreSQL, this diagram represents the logical relationships across the system. In production, the tables may belong to different service-owned databases rather than one shared database. For example, the Order Service would own order records, while the Delivery Service would own delivery records.
 
-- A user can belong to multiple suppliers through `SupplierMembers`.
-- A supplier can operate multiple locations and publish multiple offers.
-- A category can contain child categories and multiple products.
-- A product can have offers from different suppliers.
-- Inventory is tracked for a supplier offer at a supplier location.
-- A customer order can be divided into multiple supplier orders.
-- Each supplier order contains order items and can have delivery records.
-- An order can have multiple payment records.
-- A payment can have multiple refunds.
-- A delivery can have multiple status-history records.
-
-## Implementation Notes
-
-- Entity identifiers use `Guid`, which maps to PostgreSQL UUID values through EF Core and Npgsql.
-- Nullable properties represent optional data where defined in the application models.
-- Monetary amounts use decimal precision appropriate for financial values.
-- Inventory quantities use decimal precision to support fractional quantities.
-- `InventoryMovement.ReferenceType` and `ReferenceId` are reference metadata; they should not be interpreted as a conventional foreign-key relationship without additional configuration.
-- This diagram documents the intended entity relationships from the application models. Verify EF Core configuration and applied migrations before treating it as an exact representation of the deployed database.
+For your first implementation, you can begin with a single PostgreSQL database and separate FastAPI modules, then split the databases into independently owned services as the project grows.
