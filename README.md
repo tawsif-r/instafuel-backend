@@ -1,29 +1,140 @@
-# dotnet Backend for Instafuel
-## Table Of Content
-- [Introduction](#introduction)
-- [Choice of template for dotnet](#choice-of-template-for-dotnet)
-- []()
+# InstaFuel Backend
 
-## Introduction
+Backend API for Fuel On-Demand (InstaFuel), a marketplace platform that connects customers with fuel suppliers and delivery agents.
 
-**Product Name**: Fuel On-Demand (Working Title)
+## Technology Stack
 
-**Overview**: A multi-entity mobile and web platform that enables on-demand delivery of vehicle and household fuels directly to customer locations.
+- ASP.NET Core Web API
+- .NET 10
+- C#
+- PostgreSQL
+- Entity Framework Core
+- Npgsql PostgreSQL provider
+- Serilog
+- OpenAPI and Swagger
 
+## Prerequisites
 
-**Problem Statement**: Vehicle owners experiencing roadside fuel exhaustion, fleet managers, and household users face inconvenience, safety risks, and time loss traveling to traditional fuel stations.
+Install the following tools before running the project:
 
+- .NET 10 SDK
+- Docker Engine
+- Docker Compose
+- Git
 
-**Core Objective**: Deliver a fast, safe, and seamless micro-delivery service for fuel, connecting customers with local suppliers and automated delivery riders while maintaining strict compliance and safety.
-
-## Choice of template for dotnet
-
-`Webapi` seems to be the best choice, however further discussion is required before reaching the decision.
-
-## Run the app
-
-Run the app with the following bash command:
+Verify the installations:
 
 ```bash
-dotnet watch # will rebuild the app on any change in code.
+dotnet --version
+docker --version
+docker compose version
+git --version
 ```
+
+## Project Structure
+
+```text
+instafuel/
+├── Instafuel.Api/
+│   ├── Controllers/
+│   ├── Models/
+│   ├── Migrations/
+│   ├── Properties/
+│   ├── Program.cs
+│   └── Instafuel.Api.csproj
+├── docs/
+│   └── database_schema.md
+├── docker-compose.yml
+└── README.md
+```
+
+## Database Setup
+
+The project uses PostgreSQL, running locally through Docker Compose.
+
+Start the database from the repository root:
+
+```bash
+docker compose up -d db
+```
+
+Check the container status:
+
+```bash
+docker compose ps
+```
+
+The current Compose configuration uses:
+
+- Database: `instafuel`
+- Username: `tawsif`
+- Port: `5432`
+
+Configure the `PostgresConnection` connection string in `Instafuel.Api/appsettings.json` to match your local database credentials.
+
+Do not commit production credentials or secrets to source control.
+
+## Database Migrations
+
+Run the following commands from the repository root.
+
+Restore project dependencies:
+
+```bash
+dotnet restore Instafuel.Api
+```
+
+Install the Entity Framework Core CLI tool if it is not already available:
+
+```bash
+dotnet tool install --global dotnet-ef
+```
+
+If the tool is already installed, update it when needed:
+
+```bash
+dotnet tool update --global dotnet-ef
+```
+
+Apply existing migrations to the configured database:
+
+```bash
+dotnet ef database update --project Instafuel.Api
+```
+
+Create a migration after changing the EF Core models:
+
+```bash
+dotnet ef migrations add MigrationName --project Instafuel.Api
+```
+
+Review generated migrations before applying them to a database.
+
+## Run the Application
+
+Start PostgreSQL first, then run the API:
+
+```bash
+dotnet watch --project Instafuel.Api
+```
+
+The application uses the connection string named `PostgresConnection`.
+
+In the Development environment, OpenAPI and Swagger UI are enabled. Use the local URL printed by ASP.NET Core when the application starts.
+
+## Logging
+
+The application uses Serilog for console logging and error-level file logging.
+
+Log files are written under:
+
+```text
+Instafuel.Api/logs/
+```
+
+Avoid logging passwords, credentials, tokens, or other sensitive information.
+
+## Documentation
+
+- [Database Schema](docs/database_schema.md)
+- [Architecture](ARCHITECTURE.md)
