@@ -5,7 +5,9 @@ namespace Instafuel.Api.Models;
 public class InventoryBalance
 {
     public Guid Id { get; set; }
+
     public Guid SupplierLocationId { get; set; }
+
     public Guid SupplierOfferId { get; set; }
 
     [Precision(14, 3)]
@@ -16,7 +18,13 @@ public class InventoryBalance
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    // PostgreSQL xmin concurrency token
+    public uint Version { get; set; }
+
     public SupplierLocation SupplierLocation { get; set; } = null!;
+
     public SupplierOffer SupplierOffer { get; set; } = null!;
-    public ICollection<InventoryMovement> Movements { get; set; } = new List<InventoryMovement>();
+
+    public ICollection<InventoryMovement> Movements { get; set; }
+        = new List<InventoryMovement>();
 }
