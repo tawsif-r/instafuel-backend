@@ -1,126 +1,183 @@
 # InstaFuel Backend
 
-Backend API for Fuel On-Demand (InstaFuel), a marketplace platform that connects customers with fuel suppliers and delivery agents.
+Backend API for InstaFuel, a fuel marketplace platform connecting customers with fuel suppliers and delivery agents.
 
 ## Technology Stack
 
 - ASP.NET Core Web API
 - .NET 10
 - C#
-- PostgreSQL
+- PostgreSQL 17
 - Entity Framework Core
 - Npgsql PostgreSQL provider
 - Serilog
 - OpenAPI and Swagger
+- Docker and Docker Compose
 
 ## Prerequisites
 
-Install the following tools before running the project:
+Install the following tools:
 
-- .NET 10 SDK
+- Git
 - Docker Engine
 - Docker Compose
-- Git
 
 Verify the installations:
 
 ```bash
-dotnet --version
+git --version
 docker --version
 docker compose version
-git --version
 ```
+
+The API runs inside Docker, so installing the .NET SDK locally is not required for the standard Docker workflow. The .NET 10 SDK is needed for local development outside Docker.
 
 ## Project Structure
 
 ```text
 instafuel/
 ├── Instafuel.Api/
-│   ├── Controllers/
+│   ├── Data/
+│   │   └── Configurations/
 │   ├── Models/
 │   ├── Migrations/
-│   ├── Properties/
 │   ├── Program.cs
+│   ├── Dockerfile
+│   ├── appsettings.json
 │   └── Instafuel.Api.csproj
 ├── docs/
 │   └── database_schema.md
+├── .dockerignore
+├── .env.example
 ├── docker-compose.yml
+├── ARCHITECTURE.md
 └── README.md
 ```
 
-## Database Setup
+## Configuration
 
-The project uses PostgreSQL, running locally through Docker Compose.
+Docker Compose reads local environment variables from a `.env` file in the repository root.
 
-Start the database from the repository root:
+Create your local environment file:
 
 ```bash
-docker compose up -d db
+cp .env.example .env
 ```
 
-Check the container status:
+Open `.env` and configure the database credentials:
+
+```env
+POSTGRES_USER=tawsif
+POSTGRES_PASSWORD=your_local_password
+POSTGRES_DB=instafuel
+POSTGRES_PORT=5432
+ASPNETCORE_ENVIRONMENT=Development
+```
+
+Replace `your_local_password` with a password of your choice.
+
+**Security requirements:**
+
+- Never commit `.env` to Git.
+- Commit `.env.example` with placeholder values only.
+- Do not put database passwords in `appsettings.json`.
+- Do not share connection strings or terminal output containing real credentials.
+
+## Run the Application with Docker Compose
+
+Run these commands from the repository root.
+
+Build the API image and start the API and database:
+
+```bash
+docker compose up --build
+```
+
+Docker Compose starts PostgreSQL and waits for its health check before starting the API.
+
+In the Development environment, the API applies pending Entity Framework Core migrations during startup.
+
+The API listens on port `8080`.
+
+### Access Swagger UI
+
+Open the following URL in your browser:
+
+```text
+http://localhost:8080/swagger
+```
+
+OpenAPI JSON:
+
+```text
+http://localhost:8080/swagger/v1/swagger.json
+```
+
+Swagger lists implemented API endpoints. If no controllers or minimal API endpoints have been implemented, the specification may show `No operations defined in spec!`.
+
+### Run in the Background
+
+To start the services in detached mode:
+
+```bash
+docker compose up --build -d
+```
+
+Check service status:
 
 ```bash
 docker compose ps
 ```
 
-The current Compose configuration uses:
-
-- Database: `instafuel`
-- Username: `tawsif`
-- Port: `5432`
-
-Configure the `PostgresConnection` connection string in `Instafuel.Api/appsettings.json` to match your local database credentials.
-
-Do not commit production credentials or secrets to source control.
-
-## Database Migrations
-
-Run the following commands from the repository root.
-
-Restore project dependencies:
+View API logs:
 
 ```bash
-dotnet restore Instafuel.Api
+docker compose logs -f api
 ```
 
-Install the Entity Framework Core CLI tool if it is not already available:
+View database logs:
+
+```bash
+docker compose logs -f db
+```
+
+Stop the services:
+
+```bash
+docker compose down
+```
+
+The named PostgreSQL volume is preserved when using `docker compose down`. To remove the database volume and its stored data, a separate destructive action is required.
+
+## Database and Migrations
+
+PostgreSQL runs as a Docker Compose service. The API connects to it using the `PostgresConnection` connection string supplied through environment configuration.
+
+Inside Docker Compose, the database hostname is `db`, not `localhost`.
+
+In Development, pending migrations are applied automatically when the API starts.
+
+To create a migration during local development, install the EF Core CLI if necessary:
 
 ```bash
 dotnet tool install --global dotnet-ef
 ```
 
-If the tool is already installed, update it when needed:
-
-```bash
-dotnet tool update --global dotnet-ef
-```
-
-Apply existing migrations to the configured database:
-
-```bash
-dotnet ef database update --project Instafuel.Api
-```
-
-Create a migration after changing the EF Core models:
+Create a migration after changing the EF Core model:
 
 ```bash
 dotnet ef migrations add MigrationName --project Instafuel.Api
 ```
 
-Review generated migrations before applying them to a database.
+Review the generated migration before applying it to a database.
 
-## Run the Application
-
-Start PostgreSQL first, then run the API:
+For a local database update outside the Docker startup workflow:
 
 ```bash
-dotnet watch --project Instafuel.Api
+dotnet ef database update --project Instafuel.Api
 ```
 
-The application uses the connection string named `PostgresConnection`.
-
-In the Development environment, OpenAPI and Swagger UI are enabled. Use the local URL printed by ASP.NET Core when the application starts.
+Ensure the local environment has the correct connection string before running EF Core commands.
 
 ## Logging
 
@@ -132,9 +189,9 @@ Log files are written under:
 Instafuel.Api/logs/
 ```
 
-Avoid logging passwords, credentials, tokens, or other sensitive information.
+Avoid logging passwords, tokens, connection strings, or other sensitive information.
 
 ## Documentation
 
-- [Database Schema](docs/database_schema.md)
 - [Architecture](ARCHITECTURE.md)
+- [Database Schema](docs/database_schema.md)
