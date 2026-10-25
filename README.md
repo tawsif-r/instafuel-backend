@@ -1,8 +1,12 @@
-# InstaFuel Backend
+# dotnet Backend for Instafuel
+## Table Of Content
+- [Introduction](#introduction)
+- [Choice of template for dotnet](#choice-of-template-for-dotnet)
+- []()
 
 Backend API for InstaFuel, a fuel marketplace platform connecting customers with fuel suppliers and delivery agents.
 
-## Technology Stack
+**Product Name**: Fuel On-Demand (Working Title)
 
 - ASP.NET Core Web API
 - .NET 10
@@ -14,7 +18,6 @@ Backend API for InstaFuel, a fuel marketplace platform connecting customers with
 - OpenAPI and Swagger
 - Docker and Docker Compose
 
-## Prerequisites
 
 Install the following tools:
 
@@ -22,7 +25,7 @@ Install the following tools:
 - Docker Engine
 - Docker Compose
 
-Verify the installations:
+**Core Objective**: Deliver a fast, safe, and seamless micro-delivery service for fuel, connecting customers with local suppliers and automated delivery riders while maintaining strict compliance and safety.
 
 ```bash
 git --version
