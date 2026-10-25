@@ -8,6 +8,8 @@ public class InventoryBalance
     public Guid SupplierLocationId { get; set; }
     public Guid SupplierOfferId { get; set; }
 
+    public uint Version { get; set; }
+
     [Precision(14, 3)]
     public decimal QuantityOnHand { get; set; }
 

@@ -67,6 +67,11 @@ app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
 {
+    using var scope = app.Services.CreateScope();
+
+    var dbContext = scope.ServiceProvider.GetRequiredService<PgDbContext>();
+    dbContext.Database.Migrate();
+
     app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI();
