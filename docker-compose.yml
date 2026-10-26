@@ -31,6 +31,8 @@ services:
       ConnectionStrings__PostgresConnection: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
     ports:
       - "8080:8080"
+    volumes:
+      - ./Instafuel.Api/logs:/app/logs
 
 volumes:
   postgres_data:

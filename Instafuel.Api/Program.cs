@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Instafuel.Api.Models;
+using Instafuel.Api.Handlers;
+using Instafuel.Api.Middleware;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,14 +33,14 @@ Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .WriteTo.Console(
         outputTemplate:
-            "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+            "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [RequestId:{RequestId}] {Message:lj}{NewLine}{Exception}"
     )
     .WriteTo.File(
         "logs/app-error-.log",
         rollingInterval: RollingInterval.Day,
         restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Error,
         outputTemplate:
-            "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+            "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [RequestId:{RequestId}] {Message:lj}{NewLine}{Exception}"
     )
     .CreateLogger();
 
@@ -52,6 +54,8 @@ builder.Logging.AddFilter(
 
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -63,6 +67,8 @@ builder.Services.AddDbContext<PgDbContext>(options =>
 
 var app = builder.Build();
 
+app.UseMiddleware<RequestIdMiddleware>();
+app.UseExceptionHandler();
 app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
