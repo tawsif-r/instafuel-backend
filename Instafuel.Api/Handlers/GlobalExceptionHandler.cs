@@ -25,6 +25,16 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 "Validation failed",
                 exception.Message),
 
+            BadRequestException => (
+                StatusCodes.Status400BadRequest,
+                "Bad request",
+                exception.Message),
+
+            UnauthorizedException => (
+                StatusCodes.Status401Unauthorized,
+                "Unauthorized",
+                exception.Message),
+
             NotFoundException => (
                 StatusCodes.Status404NotFound,
                 "Resource not found",
