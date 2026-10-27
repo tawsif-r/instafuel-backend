@@ -22,6 +22,8 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+!Instafuel.Api/logs/
+!Instafuel.Api/logs/.gitkeep
 
 # .NET Core
 project.lock.json
