@@ -1,7 +1,10 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Instafuel.Api.Models;
 using Instafuel.Api.Handlers;
 using Instafuel.Api.Middleware;
+using Instafuel.Api.Exceptions;
+using FluentValidation;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,6 +57,23 @@ builder.Logging.AddFilter(
 
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
+
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(e => e.Value?.Errors.Count > 0)
+            .ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+            );
+
+        throw new AppValidationException(errors);
+    };
+});
+
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddEndpointsApiExplorer();
@@ -75,8 +95,19 @@ if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
 
-    var dbContext = scope.ServiceProvider.GetRequiredService<PgDbContext>();
-    dbContext.Database.Migrate();
+    var connectionString = builder.Configuration.GetConnectionString("PostgresConnection");
+    if (!string.IsNullOrWhiteSpace(connectionString))
+    {
+        try
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<PgDbContext>();
+            dbContext.Database.Migrate();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not apply database migrations at startup.");
+        }
+    }
 
     app.MapOpenApi();
     app.UseSwagger();

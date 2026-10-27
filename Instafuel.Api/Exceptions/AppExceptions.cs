@@ -15,6 +15,25 @@ public sealed class AppValidationException : Exception
     {
         Errors = errors;
     }
+
+    public AppValidationException(string propertyName, string errorMessage)
+        : base("One or more validation errors occurred.")
+    {
+        Errors = new Dictionary<string, string[]>
+        {
+            [propertyName] = [errorMessage]
+        };
+    }
+}
+
+public sealed class BadRequestException : Exception
+{
+    public BadRequestException(string message) : base(message) { }
+}
+
+public sealed class UnauthorizedException : Exception
+{
+    public UnauthorizedException(string message = "Unauthorized") : base(message) { }
 }
 
 public sealed class NotFoundException : Exception

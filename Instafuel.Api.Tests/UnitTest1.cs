@@ -40,6 +40,8 @@ public class GlobalExceptionHandlerTests
     }
 
     [Theory]
+    [InlineData(typeof(BadRequestException), 400)]
+    [InlineData(typeof(UnauthorizedException), 401)]
     [InlineData(typeof(NotFoundException), 404)]
     [InlineData(typeof(ConflictException), 409)]
     [InlineData(typeof(ForbiddenException), 403)]
@@ -47,11 +49,14 @@ public class GlobalExceptionHandlerTests
         Type exceptionType,
         int expectedStatus)
     {
-        Exception exception = exceptionType == typeof(NotFoundException)
-            ? new NotFoundException("Resource missing.")
-            : exceptionType == typeof(ConflictException)
-                ? new ConflictException("Resource conflict.")
-                : new ForbiddenException();
+        Exception exception = exceptionType switch
+        {
+            _ when exceptionType == typeof(BadRequestException) => new BadRequestException("Invalid request data."),
+            _ when exceptionType == typeof(UnauthorizedException) => new UnauthorizedException(),
+            _ when exceptionType == typeof(NotFoundException) => new NotFoundException("Resource missing."),
+            _ when exceptionType == typeof(ConflictException) => new ConflictException("Resource conflict."),
+            _ => new ForbiddenException()
+        };
 
         var result = await HandleExceptionAsync(exception);
 
