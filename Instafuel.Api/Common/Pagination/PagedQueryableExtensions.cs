@@ -4,8 +4,12 @@ namespace Instafuel.Api.Common.Pagination;
 
 public static class PagedQueryableExtensions
 {
+    /// <summary>
+    /// Pages an ordered query. Callers should include a unique tie-breaker in
+    /// the ordering so rows with equal sort values remain stable between pages.
+    /// </summary>
     public static async Task<PagedResult<T>> ToPagedResultAsync<T>(
-        this IQueryable<T> source,
+        this IOrderedQueryable<T> source,
         PagedRequest request,
         CancellationToken cancellationToken = default)
     {
