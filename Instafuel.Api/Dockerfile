@@ -16,8 +16,12 @@ RUN apt-get update \
 
 WORKDIR /app
 
+RUN mkdir -p /app/logs \
+    && chown -R 1000:1000 /app
+
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 
 COPY --from=build /app/publish .
+USER 1000:1000
 ENTRYPOINT ["dotnet", "Instafuel.Api.dll"]

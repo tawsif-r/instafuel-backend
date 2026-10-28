@@ -10,6 +10,7 @@ public class PaginationTests
     [InlineData(0, 1)]
     [InlineData(-5, 1)]
     [InlineData(3, 3)]
+    [InlineData(int.MaxValue, 21474837)]
     public void PagedRequest_ClampsPageCorrectly(int inputPage, int expectedPage)
     {
         var request = new PagedRequest { Page = inputPage };

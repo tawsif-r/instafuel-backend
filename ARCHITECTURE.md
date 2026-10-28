@@ -21,6 +21,8 @@ The application is organized into logical business modules while remaining a sin
 
 Modules share the same application process and database. They communicate through application services and internal method calls rather than inter-service HTTP requests.
 
+**Current implementation status:** the shared API infrastructure, EF Core persistence model, and Identity endpoints for registration, login, refresh, logout, and the current-user profile are implemented. The other business modules shown below describe the planned structure; their workflows and API endpoints are still being built.
+
 ## 2. Architecture Principles
 
 The backend follows these principles:

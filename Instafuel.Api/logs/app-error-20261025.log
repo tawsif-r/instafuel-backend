@@ -1,0 +1,19 @@
+2026-10-25 10:51:49.288 +00:00 [ERR] [RequestId:3618af7334614fe7b2c7ff9f590e0902] HTTP GET /__test-error responded 500 in 18.4190 ms
+System.Exception: Temporary logging test
+   at Program.<>c.<<Main>$>b__0_1(HttpContext context) in /src/Instafuel.Api/Program.cs:line 89
+   at lambda_method5(Closure, Object, HttpContext)
+   at Microsoft.AspNetCore.Routing.EndpointMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+2026-10-25 10:51:49.319 +00:00 [ERR] [RequestId:3618af7334614fe7b2c7ff9f590e0902] Unhandled exception. RequestId: 3618af7334614fe7b2c7ff9f590e0902
+System.Exception: Temporary logging test
+   at Program.<>c.<<Main>$>b__0_1(HttpContext context) in /src/Instafuel.Api/Program.cs:line 89
+   at lambda_method5(Closure, Object, HttpContext)
+   at Microsoft.AspNetCore.Routing.EndpointMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)

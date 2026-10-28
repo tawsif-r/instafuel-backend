@@ -40,8 +40,14 @@ The API runs inside Docker, so installing the .NET SDK locally is not required f
 ```text
 instafuel/
 ├── Instafuel.Api/
+│   ├── Common/
+│   ├── Controllers/
 │   ├── Data/
 │   │   └── Configurations/
+│   ├── Middleware/
+│   ├── Modules/
+│   │   └── Identity/
+│   │       └── DTOs/
 │   ├── Models/
 │   ├── Migrations/
 │   ├── Program.cs
@@ -75,15 +81,26 @@ POSTGRES_PASSWORD=your_local_password
 POSTGRES_DB=instafuel
 POSTGRES_PORT=5432
 ASPNETCORE_ENVIRONMENT=Development
+JWT_SIGNING_KEY=replace_with_a_random_secret_at_least_32_bytes
 ```
 
 Replace `your_local_password` with a password of your choice.
+Replace `JWT_SIGNING_KEY` with a random secret of at least 32 bytes before
+starting the API. You can generate one with `openssl rand -base64 48`.
+
+For local development outside Docker, keep the connection string in .NET User
+Secrets instead of a tracked settings file:
+
+```bash
+dotnet user-secrets set "ConnectionStrings:PostgresConnection" "Host=localhost;Port=5432;Database=instafuel;Username=your_user;Password=your_password" --project Instafuel.Api
+dotnet user-secrets set "Jwt:SigningKey" "paste-a-random-secret-here" --project Instafuel.Api
+```
 
 **Security requirements:**
 
 - Never commit `.env` to Git.
 - Commit `.env.example` with placeholder values only.
-- Do not put database passwords in `appsettings.json`.
+- Do not put database passwords in tracked `appsettings*.json` files.
 - Do not share connection strings or terminal output containing real credentials.
 
 ## Run the Application with Docker Compose
@@ -116,7 +133,25 @@ OpenAPI JSON:
 http://localhost:8080/swagger/v1/swagger.json
 ```
 
-Swagger lists implemented API endpoints. If no controllers or minimal API endpoints have been implemented, the specification may show `No operations defined in spec!`.
+Swagger UI lists the API endpoints implemented in the current project.
+
+Implemented endpoints include:
+
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/auth/me` (Bearer access token required)
+- `GET /health/live`
+- `GET /health/ready` (checks PostgreSQL connectivity)
+
+Development applies pending EF Core migrations at startup when a connection
+string is configured. Production expects migrations to be applied by the
+deployment process.
+
+For databases created before the snake_case naming convention was enabled,
+run [the migration-history upgrade SQL](docs/upgrade_migration_history.sql)
+once before using EF Core migration commands.
 
 ### Run in the Background
 

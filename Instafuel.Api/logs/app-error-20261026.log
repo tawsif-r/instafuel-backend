@@ -1,0 +1,2 @@
+2026-10-26 15:56:07.732 +06:00 [ERR] [RequestId:] An error occurred using the connection to database '' on server ''.
+2026-10-26 16:00:38.538 +06:00 [ERR] [RequestId:] An error occurred using the connection to database 'instafuel' on server 'tcp://localhost:5432'.

@@ -1,0 +1,52 @@
+2026-10-27 15:55:48.884 +06:00 [ERR] [RequestId:] An error occurred using the connection to database 'instafuel' on server 'tcp://localhost:5432'.
+2026-10-27 15:56:04.507 +06:00 [ERR] [RequestId:] An error occurred using the connection to database 'instafuel' on server 'tcp://localhost:5432'.
+2026-10-27 16:01:08.814 +06:00 [ERR] [RequestId:] Failed executing DbCommand (7ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+DROP TABLE "Tests";
+2026-10-27 16:01:45.089 +06:00 [ERR] [RequestId:] Failed executing DbCommand (4ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+DROP TABLE "Tests";
+2026-10-27 16:02:00.700 +06:00 [ERR] [RequestId:] Failed executing DbCommand (7ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE categories (
+    "Id" uuid NOT NULL,
+    "ParentId" uuid,
+    "Name" character varying(150) NOT NULL,
+    "Slug" character varying(180) NOT NULL,
+    "IsActive" boolean NOT NULL,
+    CONSTRAINT "PK_categories" PRIMARY KEY ("Id"),
+    CONSTRAINT ck_categories_name_not_empty CHECK (length(trim(name)) > 0),
+    CONSTRAINT ck_categories_slug_not_empty CHECK (length(trim(slug)) > 0),
+    CONSTRAINT "FK_categories_categories_ParentId" FOREIGN KEY ("ParentId") REFERENCES categories ("Id") ON DELETE RESTRICT
+);
+2026-10-27 16:08:06.859 +06:00 [ERR] [RequestId:] Failed executing DbCommand (12ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE user_roles (
+    "UserId" uuid NOT NULL,
+    "RoleId" integer NOT NULL,
+    "GrantedAt" timestamp with time zone NOT NULL DEFAULT (now()),
+    "GrantedBy" uuid,
+    CONSTRAINT "PK_user_roles" PRIMARY KEY ("UserId", "RoleId"),
+    CONSTRAINT "FK_user_roles_roles_RoleId" FOREIGN KEY ("RoleId") REFERENCES roles ("Id") ON DELETE RESTRICT,
+    CONSTRAINT "FK_user_roles_users_UserId" FOREIGN KEY ("UserId") REFERENCES users ("Id") ON DELETE CASCADE
+);
+2026-10-27 16:14:46.308 +06:00 [ERR] [RequestId:] Failed executing DbCommand (25ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT migration_id, product_version
+FROM "__EFMigrationsHistory"
+ORDER BY migration_id;
+2026-10-27 16:18:05.827 +06:00 [ERR] [RequestId:] Failed executing DbCommand (25ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT migration_id, product_version
+FROM "__EFMigrationsHistory"
+ORDER BY migration_id;
+2026-10-27 16:21:41.925 +06:00 [ERR] [RequestId:] Failed executing DbCommand (23ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT migration_id, product_version
+FROM "__EFMigrationsHistory"
+ORDER BY migration_id;
+2026-10-27 16:23:38.877 +06:00 [ERR] [RequestId:] Failed executing DbCommand (22ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT migration_id, product_version
+FROM "__EFMigrationsHistory"
+ORDER BY migration_id;
+2026-10-27 16:26:20.940 +06:00 [ERR] [RequestId:] Failed executing DbCommand (25ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT migration_id, product_version
+FROM "__EFMigrationsHistory"
+ORDER BY migration_id;
+2026-10-27 16:32:49.064 +06:00 [ERR] [RequestId:] Failed executing DbCommand (4ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+ALTER INDEX "IX_roles_name" RENAME TO roles;
+2026-10-27 16:38:02.514 +06:00 [ERR] [RequestId:] An error occurred using the connection to database '' on server ''.
+2026-10-27 16:50:36.641 +06:00 [ERR] [RequestId:] An error occurred using the connection to database 'instafuel' on server 'tcp://localhost:5432'.
