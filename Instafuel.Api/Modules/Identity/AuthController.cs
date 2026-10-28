@@ -24,6 +24,13 @@ public sealed class AuthController : BaseApiController
         CancellationToken cancellationToken) =>
         Ok(await _authService.RegisterAsync(request, cancellationToken));
 
+    [HttpPost("register/rider")]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<AuthResponse>> RegisterRider(
+        RegisterRiderRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await _authService.RegisterRiderAsync(request, cancellationToken));
+
     [HttpPost("login")]
     [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthResponse>> Login(

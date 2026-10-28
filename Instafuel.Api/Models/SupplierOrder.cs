@@ -21,4 +21,5 @@ public class SupplierOrder
     public SupplierLocation SupplierLocation { get; set; } = null!;
     public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
     public ICollection<Delivery> Deliveries { get; set; } = new List<Delivery>();
+    public ICollection<SupplierOrderStatusHistory> StatusHistory { get; set; } = new List<SupplierOrderStatusHistory>();
 }

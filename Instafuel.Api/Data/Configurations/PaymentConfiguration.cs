@@ -54,7 +54,13 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
             .IsUnique()
             .HasFilter("idempotency_key <> ''");
 
-        builder.HasIndex(p => p.OrderId);
+        builder.HasIndex(p => p.OrderId, "IX_Payments_OrderId")
+            .HasDatabaseName("ix_payments_order_id");
+
+        builder.HasIndex(p => p.OrderId, "IX_Payments_CashActiveOrderId")
+            .IsUnique()
+            .HasDatabaseName("ix_payments_cash_active_order_id")
+            .HasFilter("method = 'cash' AND status IN ('pending', 'successful')");
 
         builder.HasIndex(p => p.Status);
 

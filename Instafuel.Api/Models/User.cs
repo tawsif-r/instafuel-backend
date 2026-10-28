@@ -17,4 +17,5 @@ public class User
     public ICollection<Delivery> AssignedDeliveries { get; set; } = new List<Delivery>();
     public ICollection<CustomerAddress> Addresses { get; set; } = new List<CustomerAddress>();
     public ICollection<CustomerVehicle> Vehicles { get; set; } = new List<CustomerVehicle>();
+    public RiderProfile? RiderProfile { get; set; }
 }

@@ -204,6 +204,13 @@ namespace Instafuel.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("assigned_at");
 
+                    b.Property<decimal>("CashCollectedAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("cash_collected_amount");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -216,9 +223,41 @@ namespace Instafuel.Api.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("delivery_agent_id");
 
+                    b.Property<DateTime?>("LocationUpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("location_updated_at");
+
                     b.Property<DateTime?>("PickedUpAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("picked_up_at");
+
+                    b.Property<string>("ProofOfDeliveryReference")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("proof_of_delivery_reference");
+
+                    b.Property<decimal?>("RiderLatitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("numeric(9,6)")
+                        .HasColumnName("rider_latitude");
+
+                    b.Property<decimal?>("RiderLongitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("numeric(9,6)")
+                        .HasColumnName("rider_longitude");
+
+                    b.Property<DateTime?>("SafetyChecklistCompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("safety_checklist_completed_at");
+
+                    b.Property<string>("SafetyChecklistJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("safety_checklist_json");
+
+                    b.Property<string>("SafetyChecklistNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("safety_checklist_notes");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -246,6 +285,12 @@ namespace Instafuel.Api.Migrations
 
                     b.ToTable("deliveries", null, t =>
                         {
+                            t.HasCheckConstraint("ck_deliveries_cash_collected_non_negative", "cash_collected_amount >= 0");
+
+                            t.HasCheckConstraint("ck_deliveries_rider_latitude", "rider_latitude IS NULL OR rider_latitude BETWEEN -90 AND 90");
+
+                            t.HasCheckConstraint("ck_deliveries_rider_longitude", "rider_longitude IS NULL OR rider_longitude BETWEEN -180 AND 180");
+
                             t.HasCheckConstraint("ck_deliveries_status", "status IN ('pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'failed', 'cancelled')");
 
                             t.HasCheckConstraint("ck_deliveries_timestamps", "(picked_up_at IS NULL OR assigned_at IS NOT NULL) AND (delivered_at IS NULL OR picked_up_at IS NOT NULL)");
@@ -422,6 +467,18 @@ namespace Instafuel.Api.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("CheckoutIdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("checkout_idempotency_key");
+
+                    b.Property<string>("CheckoutRequestFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("checkout_request_fingerprint");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -530,6 +587,11 @@ namespace Instafuel.Api.Migrations
 
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_orders_status");
+
+                    b.HasIndex("CustomerId", "CheckoutIdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_orders_customer_id_checkout_idempotency_key")
+                        .HasFilter("checkout_idempotency_key <> ''");
 
                     b.ToTable("orders", null, t =>
                         {
@@ -683,11 +745,16 @@ namespace Instafuel.Api.Migrations
                         .HasDatabaseName("ix_payments_idempotency_key")
                         .HasFilter("idempotency_key <> ''");
 
-                    b.HasIndex("OrderId")
-                        .HasDatabaseName("ix_payments_order_id");
-
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_payments_status");
+
+                    b.HasIndex(new[] { "OrderId" }, "IX_Payments_CashActiveOrderId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_payments_cash_active_order_id")
+                        .HasFilter("method = 'cash' AND status IN ('pending', 'successful')");
+
+                    b.HasIndex(new[] { "OrderId" }, "IX_Payments_OrderId")
+                        .HasDatabaseName("ix_payments_order_id");
 
                     b.ToTable("payments", null, t =>
                         {
@@ -783,9 +850,18 @@ namespace Instafuel.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("DeviceInfo")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("device_info");
+
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
+
+                    b.Property<Guid>("FamilyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("family_id");
 
                     b.Property<DateTime?>("RevokedAt")
                         .HasColumnType("timestamp with time zone")
@@ -803,6 +879,9 @@ namespace Instafuel.Api.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_refresh_tokens");
+
+                    b.HasIndex("FamilyId")
+                        .HasDatabaseName("ix_refresh_tokens_family_id");
 
                     b.HasIndex("TokenHash")
                         .IsUnique()
@@ -861,6 +940,98 @@ namespace Instafuel.Api.Migrations
                             t.HasCheckConstraint("ck_refunds_amount", "amount > 0");
 
                             t.HasCheckConstraint("ck_refunds_status", "status IN ('pending', 'successful', 'failed', 'cancelled')");
+                        });
+                });
+
+            modelBuilder.Entity("Instafuel.Api.Models.RiderPreferredArea", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("city");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("RiderProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rider_profile_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_rider_preferred_areas");
+
+                    b.HasIndex("RiderProfileId", "City")
+                        .IsUnique()
+                        .HasDatabaseName("ix_rider_preferred_areas_rider_profile_id_city");
+
+                    b.ToTable("rider_preferred_areas", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_rider_preferred_areas_city_not_empty", "length(trim(city)) > 0");
+                        });
+                });
+
+            modelBuilder.Entity("Instafuel.Api.Models.RiderProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsAvailable")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_available");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("VehicleRegistrationNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("vehicle_registration_number");
+
+                    b.Property<string>("VehicleType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("vehicle_type");
+
+                    b.Property<string>("VerificationStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("pending")
+                        .HasColumnName("verification_status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_rider_profiles");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_rider_profiles_user_id");
+
+                    b.ToTable("rider_profiles", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_rider_profiles_registration_length", "vehicle_registration_number IS NULL OR length(vehicle_registration_number) <= 50");
+
+                            t.HasCheckConstraint("ck_rider_profiles_vehicle_type_length", "vehicle_type IS NULL OR length(vehicle_type) <= 50");
+
+                            t.HasCheckConstraint("ck_rider_profiles_verification_status", "verification_status IN ('pending', 'verified', 'rejected', 'suspended')");
                         });
                 });
 
@@ -1202,6 +1373,51 @@ namespace Instafuel.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Instafuel.Api.Models.SupplierOrderStatusHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("notes");
+
+                    b.Property<Guid?>("RecordedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_by_user_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("SupplierOrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_order_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_supplier_order_status_histories");
+
+                    b.HasIndex("RecordedByUserId")
+                        .HasDatabaseName("ix_supplier_order_status_histories_recorded_by_user_id");
+
+                    b.HasIndex("SupplierOrderId", "CreatedAt")
+                        .HasDatabaseName("ix_supplier_order_status_histories_supplier_order_id_created_at");
+
+                    b.ToTable("supplier_order_status_histories", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_supplier_order_status_histories_status", "status IN ('pending', 'accepted', 'rejected', 'preparing', 'ready', 'dispatched', 'delivered', 'cancelled')");
+                        });
+                });
+
             modelBuilder.Entity("Instafuel.Api.Models.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1258,6 +1474,8 @@ namespace Instafuel.Api.Migrations
 
                     b.ToTable("users", null, t =>
                         {
+                            t.HasCheckConstraint("ck_users_contact", "email IS NOT NULL OR phone IS NOT NULL");
+
                             t.HasCheckConstraint("ck_users_full_name_not_empty", "length(trim(full_name)) > 0");
                         });
                 });
@@ -1480,6 +1698,30 @@ namespace Instafuel.Api.Migrations
                     b.Navigation("Payment");
                 });
 
+            modelBuilder.Entity("Instafuel.Api.Models.RiderPreferredArea", b =>
+                {
+                    b.HasOne("Instafuel.Api.Models.RiderProfile", "RiderProfile")
+                        .WithMany("PreferredAreas")
+                        .HasForeignKey("RiderProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_rider_preferred_areas_rider_profiles_rider_profile_id");
+
+                    b.Navigation("RiderProfile");
+                });
+
+            modelBuilder.Entity("Instafuel.Api.Models.RiderProfile", b =>
+                {
+                    b.HasOne("Instafuel.Api.Models.User", "User")
+                        .WithOne("RiderProfile")
+                        .HasForeignKey("Instafuel.Api.Models.RiderProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_rider_profiles_users_user_id");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Instafuel.Api.Models.SupplierLocation", b =>
                 {
                     b.HasOne("Instafuel.Api.Models.Supplier", "Supplier")
@@ -1564,6 +1806,26 @@ namespace Instafuel.Api.Migrations
                     b.Navigation("SupplierLocation");
                 });
 
+            modelBuilder.Entity("Instafuel.Api.Models.SupplierOrderStatusHistory", b =>
+                {
+                    b.HasOne("Instafuel.Api.Models.User", "RecordedByUser")
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_supplier_order_status_histories_users_recorded_by_user_id");
+
+                    b.HasOne("Instafuel.Api.Models.SupplierOrder", "SupplierOrder")
+                        .WithMany("StatusHistory")
+                        .HasForeignKey("SupplierOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_supplier_order_status_histories_supplier_orders_supplier_or");
+
+                    b.Navigation("RecordedByUser");
+
+                    b.Navigation("SupplierOrder");
+                });
+
             modelBuilder.Entity("Instafuel.Api.Models.UserRole", b =>
                 {
                     b.HasOne("Instafuel.Api.Models.Role", "Role")
@@ -1619,6 +1881,11 @@ namespace Instafuel.Api.Migrations
                     b.Navigation("Offers");
                 });
 
+            modelBuilder.Entity("Instafuel.Api.Models.RiderProfile", b =>
+                {
+                    b.Navigation("PreferredAreas");
+                });
+
             modelBuilder.Entity("Instafuel.Api.Models.Role", b =>
                 {
                     b.Navigation("UserRoles");
@@ -1654,6 +1921,8 @@ namespace Instafuel.Api.Migrations
                     b.Navigation("Deliveries");
 
                     b.Navigation("Items");
+
+                    b.Navigation("StatusHistory");
                 });
 
             modelBuilder.Entity("Instafuel.Api.Models.User", b =>
@@ -1663,6 +1932,8 @@ namespace Instafuel.Api.Migrations
                     b.Navigation("AssignedDeliveries");
 
                     b.Navigation("Orders");
+
+                    b.Navigation("RiderProfile");
 
                     b.Navigation("SupplierMemberships");
 

@@ -18,6 +18,13 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (!builder.Environment.IsDevelopment()
+    && string.IsNullOrWhiteSpace(builder.Configuration["DELIVERY_FEE_BDT"]))
+{
+    throw new InvalidOperationException(
+        "DELIVERY_FEE_BDT is required outside Development. Set the business-approved flat fee from deployment configuration.");
+}
+
 Directory.CreateDirectory("logs");
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -46,11 +53,30 @@ if (Encoding.UTF8.GetByteCount(jwtOptions.SigningKey) < 32)
 {
     throw new InvalidOperationException("Jwt:SigningKey must contain at least 32 bytes.");
 }
+if (string.IsNullOrWhiteSpace(jwtOptions.Issuer) || string.IsNullOrWhiteSpace(jwtOptions.Audience)
+    || jwtOptions.AccessTokenMinutes is < 1 or > 60 || jwtOptions.RefreshTokenDays is < 1 or > 365)
+{
+    throw new InvalidOperationException("Jwt issuer/audience and token lifetimes must be configured with valid values (access 1-60 minutes, refresh 1-365 days).");
+}
 
 builder.Services.AddSingleton<IOptions<JwtOptions>>(Options.Create(jwtOptions));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken)
+                    && context.HttpContext.Request.Path.StartsWithSegments("/hubs/delivery-tracking"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -89,6 +115,7 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddOpenApi();
 builder.Services.AddControllers(options => options.Filters.Add<FluentValidationActionFilter>());
+builder.Services.AddSignalR();
 builder.Services.AddScoped<FluentValidationActionFilter>();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
@@ -142,6 +169,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.MapControllers();
+app.MapHub<Instafuel.Api.Modules.Riders.DeliveryTrackingHub>("/hubs/delivery-tracking");
 app.MapGet("/health/live", () => Results.Ok(new { status = "healthy" }));
 app.MapGet("/health/ready", async (PgDbContext dbContext, CancellationToken cancellationToken) =>
 {

@@ -44,6 +44,12 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasIndex(o => o.OrderNumber)
             .IsUnique();
 
+        builder.Property(o => o.CheckoutIdempotencyKey).IsRequired().HasMaxLength(200);
+        builder.Property(o => o.CheckoutRequestFingerprint).IsRequired().HasMaxLength(64);
+        builder.HasIndex(o => new { o.CustomerId, o.CheckoutIdempotencyKey })
+            .IsUnique()
+            .HasFilter("checkout_idempotency_key <> ''");
+
         builder.Property(o => o.Status)
             .IsRequired()
             .HasMaxLength(30)
