@@ -16,6 +16,8 @@ public class PgDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<CustomerAddress> CustomerAddresses => Set<CustomerAddress>();
     public DbSet<CustomerVehicle> CustomerVehicles => Set<CustomerVehicle>();
+    public DbSet<RiderProfile> RiderProfiles => Set<RiderProfile>();
+    public DbSet<RiderPreferredArea> RiderPreferredAreas => Set<RiderPreferredArea>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
@@ -23,6 +25,7 @@ public class PgDbContext : DbContext
     public DbSet<SupplierMember> SupplierMembers => Set<SupplierMember>();
     public DbSet<SupplierOffer> SupplierOffers => Set<SupplierOffer>();
     public DbSet<SupplierOrder> SupplierOrders => Set<SupplierOrder>();
+    public DbSet<SupplierOrderStatusHistory> SupplierOrderStatusHistories => Set<SupplierOrderStatusHistory>();
     public DbSet<InventoryBalance> InventoryBalances => Set<InventoryBalance>();
     public DbSet<InventoryMovement> InventoryMovements => Set<InventoryMovement>();
     public DbSet<Order> Orders => Set<Order>();

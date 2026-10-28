@@ -7,6 +7,8 @@ public class Order
     public Guid Id { get; set; }
     public string OrderNumber { get; set; } = string.Empty;
     public Guid CustomerId { get; set; }
+    public string CheckoutIdempotencyKey { get; set; } = string.Empty;
+    public string CheckoutRequestFingerprint { get; set; } = string.Empty;
     public string Status { get; set; } = "pending"; // pending | confirmed | processing | partially_fulfilled | completed | cancelled | failed
     public string Currency { get; set; } = "BDT";
 

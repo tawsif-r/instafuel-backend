@@ -31,23 +31,42 @@ public sealed class AuthService : IAuthService
 
     public async Task<AuthResponse> RegisterAsync(
         RegisterRequest request,
+        CancellationToken cancellationToken) =>
+        await RegisterForRoleAsync(request, RoleNames.Customer, null, cancellationToken);
+
+    public async Task<AuthResponse> RegisterRiderAsync(
+        RegisterRiderRequest request,
+        CancellationToken cancellationToken) =>
+        await RegisterForRoleAsync(
+            new RegisterRequest(request.FullName, request.Email, request.Password, request.Phone, request.DeviceInfo),
+            RoleNames.Rider, request, cancellationToken);
+
+    private async Task<AuthResponse> RegisterForRoleAsync(
+        RegisterRequest request,
+        string roleName,
+        RegisterRiderRequest? riderRequest,
         CancellationToken cancellationToken)
     {
-        var email = NormalizeEmail(request.Email);
-        if (await _dbContext.Users.AnyAsync(user => user.Email == email, cancellationToken))
-        {
-            throw new ConflictException("An account with that email already exists.");
-        }
+        var email = AuthContactNormalizer.NormalizeEmail(request.Email);
+        var phone = AuthContactNormalizer.NormalizePhone(request.Phone);
+        if (email is null && phone is null)
+            throw new AppValidationException("Contact", "Provide an email address, a phone number, or both.");
+        ValidateDeviceInfo(request.DeviceInfo);
+        if (await _dbContext.Users.AnyAsync(user =>
+                (email != null && user.Email == email) || (phone != null && user.Phone == phone), cancellationToken))
+            throw new ConflictException("An account with that email or phone already exists.");
 
-        var customerRole = await _dbContext.Roles
-            .SingleOrDefaultAsync(role => role.Name == RoleNames.Customer, cancellationToken)
-            ?? throw new InvalidOperationException("The customer role has not been seeded.");
+        var role = await _dbContext.Roles
+            .SingleOrDefaultAsync(candidate => candidate.Name == roleName, cancellationToken)
+            ?? throw new InvalidOperationException($"The {roleName} role has not been seeded.");
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
         var user = new User
         {
             FullName = request.FullName.Trim(),
             Email = email,
-            Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
+            Phone = phone,
             IsActive = true
         };
         user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
@@ -56,14 +75,27 @@ public sealed class AuthService : IAuthService
         _dbContext.UserRoles.Add(new UserRole
         {
             User = user,
-            Role = customerRole,
+            Role = role,
             GrantedAt = DateTime.UtcNow
         });
+        if (riderRequest is not null)
+        {
+            _dbContext.RiderProfiles.Add(new RiderProfile
+            {
+                User = user,
+                VerificationStatus = "pending",
+                IsAvailable = false,
+                VehicleType = riderRequest.VehicleType.Trim(),
+                VehicleRegistrationNumber = riderRequest.VehicleRegistrationNumber.Trim().ToUpperInvariant()
+            });
+        }
 
         try
         {
             await _dbContext.SaveChangesAsync(cancellationToken);
-            return await IssueTokensAsync(user, cancellationToken);
+            var response = await IssueTokensAsync(user, request.DeviceInfo, null, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return response;
         }
         catch (DbUpdateException exception) when (exception.InnerException is PostgresException
         {
@@ -78,9 +110,13 @@ public sealed class AuthService : IAuthService
         LoginRequest request,
         CancellationToken cancellationToken)
     {
-        var email = NormalizeEmail(request.Email);
+        ValidateDeviceInfo(request.DeviceInfo);
+        var email = AuthContactNormalizer.NormalizeEmail(request.Email);
+        var phone = AuthContactNormalizer.NormalizePhone(request.Phone);
         var user = await _dbContext.Users
-            .SingleOrDefaultAsync(candidate => candidate.Email == email, cancellationToken);
+            .SingleOrDefaultAsync(candidate => email != null
+                ? candidate.Email == email
+                : phone != null && candidate.Phone == phone, cancellationToken);
 
         if (user is null || !user.IsActive || string.IsNullOrEmpty(user.PasswordHash))
         {
@@ -102,31 +138,58 @@ public sealed class AuthService : IAuthService
             user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
         }
 
-        return await IssueTokensAsync(user, cancellationToken);
+        return await IssueTokensAsync(user, request.DeviceInfo, null, cancellationToken);
     }
 
     public async Task<AuthResponse> RefreshAsync(
         RefreshRequest request,
         CancellationToken cancellationToken)
     {
+        ValidateDeviceInfo(request.DeviceInfo);
         var now = DateTime.UtcNow;
         var tokenHash = HashToken(request.RefreshToken);
 
-        await using var transaction = await _dbContext.Database.BeginTransactionAsync(
-            System.Data.IsolationLevel.Serializable,
-            cancellationToken);
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
-        var storedToken = await _dbContext.RefreshTokens
+        var storedToken = await _dbContext.RefreshTokens.AsNoTracking()
             .Include(token => token.User)
             .SingleOrDefaultAsync(token => token.TokenHash == tokenHash, cancellationToken);
 
-        if (storedToken is null || storedToken.RevokedAt is not null || storedToken.ExpiresAt <= now || !storedToken.User.IsActive)
+        if (storedToken is null)
+            throw new UnauthorizedException("Refresh token is invalid or expired.");
+
+        if (storedToken.RevokedAt is not null)
         {
+            await RevokeTokenFamilyAsync(storedToken.FamilyId, now, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            throw new UnauthorizedException("Refresh token reuse was detected. This session family has been revoked.");
+        }
+        if (storedToken.ExpiresAt <= now)
+            throw new UnauthorizedException("Refresh token is invalid or expired.");
+        if (!storedToken.User.IsActive)
+        {
+            await RevokeTokenFamilyAsync(storedToken.FamilyId, now, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
             throw new UnauthorizedException("Refresh token is invalid or expired.");
         }
 
-        storedToken.RevokedAt = now;
-        var response = await IssueTokensAsync(storedToken.User, cancellationToken);
+        // Atomically claim the token. A repeated presentation revokes every token
+        // rotated from the same family, including a concurrently issued successor.
+        var claimed = await _dbContext.RefreshTokens.Where(token => token.Id == storedToken.Id
+                && token.RevokedAt == null && token.ExpiresAt > now)
+            .ExecuteUpdateAsync(update => update.SetProperty(token => token.RevokedAt, now), cancellationToken);
+        if (claimed != 1)
+        {
+            var latest = await _dbContext.RefreshTokens.AsNoTracking()
+                .SingleOrDefaultAsync(token => token.Id == storedToken.Id, cancellationToken);
+            if (latest?.RevokedAt is not null)
+                await RevokeTokenFamilyAsync(storedToken.FamilyId, now, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            throw new UnauthorizedException("Refresh token is invalid or has already been used.");
+        }
+
+        var response = await IssueTokensAsync(storedToken.User,
+            request.DeviceInfo ?? storedToken.DeviceInfo, storedToken.FamilyId, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return response;
     }
@@ -136,7 +199,7 @@ public sealed class AuthService : IAuthService
         CancellationToken cancellationToken)
     {
         var tokenHash = HashToken(request.RefreshToken);
-        var storedToken = await _dbContext.RefreshTokens
+        var storedToken = await _dbContext.RefreshTokens.AsNoTracking()
             .SingleOrDefaultAsync(token => token.TokenHash == tokenHash, cancellationToken);
 
         if (storedToken is null || storedToken.RevokedAt is not null)
@@ -144,8 +207,9 @@ public sealed class AuthService : IAuthService
             return;
         }
 
-        storedToken.RevokedAt = DateTime.UtcNow;
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        var now = DateTime.UtcNow;
+        await _dbContext.RefreshTokens.Where(token => token.Id == storedToken.Id && token.RevokedAt == null)
+            .ExecuteUpdateAsync(update => update.SetProperty(token => token.RevokedAt, now), cancellationToken);
     }
 
     public async Task<CurrentUserResponse?> GetCurrentUserAsync(
@@ -169,7 +233,8 @@ public sealed class AuthService : IAuthService
             : new CurrentUserResponse(user.Id, user.FullName, user.Email, user.Phone, user.Roles);
     }
 
-    private async Task<AuthResponse> IssueTokensAsync(User user, CancellationToken cancellationToken)
+    private async Task<AuthResponse> IssueTokensAsync(User user, string? deviceInfo, Guid? tokenFamilyId,
+        CancellationToken cancellationToken)
     {
         var roles = await _dbContext.UserRoles
             .Where(userRole => userRole.UserId == user.Id)
@@ -201,7 +266,9 @@ public sealed class AuthService : IAuthService
         _dbContext.RefreshTokens.Add(new RefreshToken
         {
             UserId = user.Id,
+            FamilyId = tokenFamilyId ?? Guid.NewGuid(),
             TokenHash = HashToken(rawRefreshToken),
+            DeviceInfo = deviceInfo,
             CreatedAt = issuedAt,
             ExpiresAt = refreshExpiresAt
         });
@@ -215,7 +282,17 @@ public sealed class AuthService : IAuthService
             refreshExpiresAt);
     }
 
-    private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
+    private async Task RevokeTokenFamilyAsync(Guid familyId, DateTime revokedAt, CancellationToken cancellationToken)
+    {
+        await _dbContext.RefreshTokens.Where(token => token.FamilyId == familyId && token.RevokedAt == null)
+            .ExecuteUpdateAsync(update => update.SetProperty(token => token.RevokedAt, revokedAt), cancellationToken);
+    }
+
+    private static void ValidateDeviceInfo(string? deviceInfo)
+    {
+        if (deviceInfo?.Length > 200)
+            throw new AppValidationException(nameof(deviceInfo), "Device info must be at most 200 characters.");
+    }
 
     private static string HashToken(string token) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));

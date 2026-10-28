@@ -46,8 +46,11 @@ instafuel/
 │   │   └── Configurations/
 │   ├── Middleware/
 │   ├── Modules/
-│   │   └── Identity/
-│   │       └── DTOs/
+│   │   ├── Identity/
+│   │   │   └── DTOs/
+│   │   ├── Customer/
+│   │   ├── Riders/
+│   │   └── Suppliers/
 │   ├── Models/
 │   ├── Migrations/
 │   ├── Program.cs
@@ -138,16 +141,64 @@ Swagger UI lists the API endpoints implemented in the current project.
 Implemented endpoints include:
 
 - `POST /api/v1/auth/register`
+- `POST /api/v1/auth/register/rider` (riders require admin verification)
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/auth/me` (Bearer access token required)
+- `POST /api/v1/supplier/applications` and `GET /api/v1/supplier/applications/mine`
+- `GET /api/v1/admin/suppliers/pending` and `PUT /api/v1/admin/suppliers/{supplierId}/status`
+- `GET/POST /api/v1/supplier/{supplierId}/members` (owner can add an existing account)
+- `GET/POST /api/v1/supplier/{supplierId}/locations`, `PUT/DELETE .../locations/{locationId}`
+- `GET /api/v1/supplier/{supplierId}/products`, `GET/POST .../offers`, `PUT .../offers/{offerId}`
+- `GET /api/v1/supplier/{supplierId}/inventory` with stock receipt and adjustment endpoints
+- `GET /api/v1/supplier/{supplierId}/orders` and `PUT .../orders/{supplierOrderId}/status`
+- `GET/PUT /api/v1/rider/profile`
+- `PUT /api/v1/rider/preferred-areas`
+- `PUT /api/v1/rider/availability`
+- `GET /api/v1/rider/jobs/available` and `POST /api/v1/rider/jobs/{deliveryId}/accept`
+- `GET /api/v1/rider/deliveries` and `POST /api/v1/rider/deliveries/{deliveryId}/decline`
+- `PUT /api/v1/rider/deliveries/{deliveryId}/status`
+- `PUT /api/v1/rider/deliveries/{deliveryId}/location`
+- `/hubs/delivery-tracking` (SignalR `JoinOrder` method)
+- `GET /api/v1/admin/riders/pending` and `PUT /api/v1/admin/riders/{riderUserId}/verification`
+- `GET /api/v1/admin/riders/failed-deliveries` and `POST /api/v1/admin/riders/failed-deliveries/{deliveryId}/retry`
 - `GET /health/live`
 - `GET /health/ready` (checks PostgreSQL connectivity)
+
+Rider jobs are visible only to verified, online riders whose preferred cities
+match a ready supplier order. Delivery completion requires a safety checklist,
+proof of delivery, and consistent COD cash collection. Earnings remain pending
+until commission and payout rules are defined.
+
+Checkout requests must include a unique `IdempotencyKey` per intended order.
+The API creates the COD payment intent in the same database transaction as the
+order. Configure `DELIVERY_FEE_BDT` in each non-Development deployment;
+the Development settings use a zero fee for local work only. The current pricing
+is a flat fee, so configure the business-approved amount before accepting live
+orders. Failed deliveries require a rider reason and can be reopened by an admin
+for reassignment.
 
 Development applies pending EF Core migrations at startup when a connection
 string is configured. Production expects migrations to be applied by the
 deployment process.
+
+Customer registration accepts an email, a phone number, or both; login accepts
+exactly one of email or phone. Email is stored lowercase, and phone formatting
+spaces/punctuation are normalized before uniqueness checks. Registration/login
+may include optional `deviceInfo` (up to 200 characters). Refresh tokens are
+stored only as hashes, rotate on each refresh, and share a family identifier;
+reusing a revoked token revokes all active tokens in that family. Applying the
+auth family migration revokes pre-existing refresh tokens because their earlier
+rotation relationships were not recorded, so existing sessions must sign in
+again once after deployment.
+
+Supplier applications are reviewed by admins, and each supplier route checks
+the signed-in user's membership in the requested supplier account. Member
+management currently adds an already registered account directly; outbound
+email invitations and owner transfer need an email provider and additional
+workflow. Supplier earnings and payouts remain unavailable until commission
+and payout rules are defined.
 
 For databases created before the snake_case naming convention was enabled,
 run [the migration-history upgrade SQL](docs/upgrade_migration_history.sql)

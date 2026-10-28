@@ -13,6 +13,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             table.HasCheckConstraint(
                 "ck_users_full_name_not_empty",
                 "length(trim(full_name)) > 0");
+            table.HasCheckConstraint(
+                "ck_users_contact",
+                "email IS NOT NULL OR phone IS NOT NULL");
         });
 
         builder.HasKey(u => u.Id);

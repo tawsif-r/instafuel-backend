@@ -1,11 +1,25 @@
-.git
-.gitignore
+# Secrets and local environment
 .env
 .env.*
 !.env.example
+**/secrets.json
 
+# Git and local tooling
+.git/
+.gitignore
+.codex/
+.agents/
+.idea/
+.vscode/
+
+# Build and test artifacts
 **/bin/
 **/obj/
+**/TestResults/
+Instafuel.Api.Tests/
+
+# Local data and documentation are not needed by the API image
 **/logs/
-.vscode/
-.idea/
+docs/
+README.md
+ARCHITECTURE.md

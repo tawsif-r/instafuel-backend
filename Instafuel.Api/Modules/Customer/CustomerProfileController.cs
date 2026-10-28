@@ -5,6 +5,7 @@ using Instafuel.Api.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Instafuel.Api.Modules.Customer;
 
@@ -38,7 +39,17 @@ public sealed class CustomerProfileController(PgDbContext dbContext) : BaseApiCo
         user.FullName = request.FullName.Trim();
         user.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
         user.UpdatedAt = DateTime.UtcNow;
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (exception.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation
+        })
+        {
+            throw new ConflictException("That phone number is already linked to another account.");
+        }
         return Ok(new CustomerProfileResponse(user.Id, user.FullName, user.Email, user.Phone, user.CreatedAt));
     }
 
@@ -55,6 +66,18 @@ public sealed class CustomerProfileController(PgDbContext dbContext) : BaseApiCo
         return Ok(addresses);
     }
 
+    [HttpGet("addresses/{addressId:guid}")]
+    public async Task<ActionResult<CustomerAddressResponse>> GetAddress(Guid addressId, CancellationToken cancellationToken)
+    {
+        var userId = CustomerControllerSupport.GetUserId(User);
+        var address = await dbContext.CustomerAddresses.AsNoTracking()
+            .Where(item => item.Id == addressId && item.CustomerId == userId)
+            .Select(item => new CustomerAddressResponse(item.Id, item.Label, item.RecipientName,
+                item.RecipientPhone, item.AddressLine, item.City, item.Latitude, item.Longitude, item.IsDefault))
+            .SingleOrDefaultAsync(cancellationToken);
+        return address is null ? NotFound() : Ok(address);
+    }
+
     [HttpPost("addresses")]
     public async Task<ActionResult<CustomerAddressResponse>> CreateAddress(
         CustomerAddressRequest request, CancellationToken cancellationToken)
@@ -67,6 +90,7 @@ public sealed class CustomerProfileController(PgDbContext dbContext) : BaseApiCo
         {
             var existing = await dbContext.CustomerAddresses.Where(item => item.CustomerId == userId && item.IsDefault).ToListAsync(cancellationToken);
             foreach (var address in existing) address.IsDefault = false;
+            await dbContext.SaveChangesAsync(cancellationToken);
         }
         var entity = new CustomerAddress
         {
@@ -78,7 +102,7 @@ public sealed class CustomerProfileController(PgDbContext dbContext) : BaseApiCo
         dbContext.CustomerAddresses.Add(entity);
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return CreatedAtAction(nameof(GetAddresses), null, ToResponse(entity));
+        return CreatedAtAction(nameof(GetAddress), new { addressId = entity.Id }, ToResponse(entity));
     }
 
     [HttpPut("addresses/{addressId:guid}")]
@@ -95,6 +119,16 @@ public sealed class CustomerProfileController(PgDbContext dbContext) : BaseApiCo
         {
             var existing = await dbContext.CustomerAddresses.Where(item => item.CustomerId == userId && item.IsDefault && item.Id != addressId).ToListAsync(cancellationToken);
             foreach (var address in existing) address.IsDefault = false;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        else if (entity.IsDefault)
+        {
+            entity.IsDefault = false;
+            await dbContext.SaveChangesAsync(cancellationToken);
+            var replacement = await dbContext.CustomerAddresses
+                .Where(item => item.CustomerId == userId && item.Id != addressId)
+                .OrderBy(item => item.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+            if (replacement is not null) replacement.IsDefault = true;
         }
         entity.Label = request.Label.Trim(); entity.RecipientName = request.RecipientName.Trim();
         entity.RecipientPhone = request.RecipientPhone.Trim(); entity.AddressLine = request.AddressLine.Trim();
@@ -112,15 +146,19 @@ public sealed class CustomerProfileController(PgDbContext dbContext) : BaseApiCo
         var entity = await dbContext.CustomerAddresses.SingleOrDefaultAsync(
             item => item.Id == addressId && item.CustomerId == userId, cancellationToken);
         if (entity is null) return NotFound();
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
         var wasDefault = entity.IsDefault;
-        dbContext.CustomerAddresses.Remove(entity);
         if (wasDefault)
         {
+            entity.IsDefault = false;
+            await dbContext.SaveChangesAsync(cancellationToken);
             var next = await dbContext.CustomerAddresses.Where(item => item.CustomerId == userId && item.Id != addressId)
                 .OrderBy(item => item.CreatedAt).FirstOrDefaultAsync(cancellationToken);
             if (next is not null) next.IsDefault = true;
         }
+        dbContext.CustomerAddresses.Remove(entity);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return NoContent();
     }
 
@@ -132,6 +170,18 @@ public sealed class CustomerProfileController(PgDbContext dbContext) : BaseApiCo
             .OrderBy(vehicle => vehicle.CreatedAt)
             .Select(vehicle => new CustomerVehicleResponse(vehicle.Id, vehicle.Label, vehicle.VehicleType,
                 vehicle.Make, vehicle.Model, vehicle.RegistrationNumber)).ToListAsync(cancellationToken));
+    }
+
+    [HttpGet("vehicles/{vehicleId:guid}")]
+    public async Task<ActionResult<CustomerVehicleResponse>> GetVehicle(Guid vehicleId, CancellationToken cancellationToken)
+    {
+        var userId = CustomerControllerSupport.GetUserId(User);
+        var vehicle = await dbContext.CustomerVehicles.AsNoTracking()
+            .Where(item => item.Id == vehicleId && item.CustomerId == userId)
+            .Select(item => new CustomerVehicleResponse(item.Id, item.Label, item.VehicleType,
+                item.Make, item.Model, item.RegistrationNumber))
+            .SingleOrDefaultAsync(cancellationToken);
+        return vehicle is null ? NotFound() : Ok(vehicle);
     }
 
     [HttpPost("vehicles")]
@@ -147,7 +197,7 @@ public sealed class CustomerProfileController(PgDbContext dbContext) : BaseApiCo
         };
         dbContext.CustomerVehicles.Add(vehicle);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return CreatedAtAction(nameof(GetVehicles), null, ToResponse(vehicle));
+        return CreatedAtAction(nameof(GetVehicle), new { vehicleId = vehicle.Id }, ToResponse(vehicle));
     }
 
     [HttpPut("vehicles/{vehicleId:guid}")]
@@ -186,12 +236,16 @@ public sealed class CustomerProfileController(PgDbContext dbContext) : BaseApiCo
             throw new AppValidationException("One or more address fields exceed their maximum length.");
         if (request.Latitude is < -90 or > 90 || request.Longitude is < -180 or > 180)
             throw new AppValidationException("Coordinates are outside valid latitude or longitude ranges.");
+        if (request.Latitude.HasValue != request.Longitude.HasValue)
+            throw new AppValidationException("Latitude and longitude must either both be provided or both be empty.");
     }
 
     private static void ValidateVehicle(CustomerVehicleRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Label) || request.Label.Length > 80 || string.IsNullOrWhiteSpace(request.VehicleType) || request.VehicleType.Length > 50)
             throw new AppValidationException("Vehicle label and type are required and must be within their maximum lengths.");
+        if (request.Make?.Length > 100 || request.Model?.Length > 100 || request.RegistrationNumber?.Length > 50)
+            throw new AppValidationException("Vehicle make, model, or registration number exceeds its maximum length.");
     }
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

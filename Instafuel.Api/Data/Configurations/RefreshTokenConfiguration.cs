@@ -15,10 +15,14 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
             .IsRequired()
             .HasMaxLength(64);
 
+        builder.Property(token => token.FamilyId).IsRequired();
+        builder.Property(token => token.DeviceInfo).HasMaxLength(200);
+
         builder.HasIndex(token => token.TokenHash)
             .IsUnique();
 
         builder.HasIndex(token => new { token.UserId, token.ExpiresAt });
+        builder.HasIndex(token => token.FamilyId);
 
         builder.HasOne(token => token.User)
             .WithMany()

@@ -20,12 +20,16 @@ public sealed class CustomerCatalogController(PgDbContext dbContext) : BaseApiCo
         CancellationToken cancellationToken)
     {
         var query = dbContext.SupplierOffers.AsNoTracking()
-            .Where(offer => offer.Status == "active" && offer.Product.IsActive && offer.Supplier.Status == "active")
+            .Where(offer => offer.Status == "active" && offer.Product.IsActive
+                && offer.Product.Category.IsActive && offer.Supplier.Status == "active")
             .Where(offer => !categoryId.HasValue || offer.Product.CategoryId == categoryId.Value)
             .Where(offer => string.IsNullOrWhiteSpace(search) || offer.Product.Name.ToLower().Contains(search.Trim().ToLower()))
-            .Where(offer => string.IsNullOrWhiteSpace(city) || offer.InventoryBalances.Any(balance => balance.SupplierLocation.IsActive && balance.SupplierLocation.City.ToLower() == city.Trim().ToLower()))
+            .Where(offer => string.IsNullOrWhiteSpace(city) || offer.InventoryBalances.Any(balance =>
+                balance.SupplierLocation.IsActive && balance.SupplierLocation.SupplierId == offer.SupplierId
+                && balance.SupplierLocation.City.ToLower() == city.Trim().ToLower()))
             .SelectMany(offer => offer.InventoryBalances
-                .Where(balance => balance.SupplierLocation.IsActive && (string.IsNullOrWhiteSpace(city) || balance.SupplierLocation.City.ToLower() == city.Trim().ToLower()))
+                .Where(balance => balance.SupplierLocation.IsActive && balance.SupplierLocation.SupplierId == offer.SupplierId
+                    && (string.IsNullOrWhiteSpace(city) || balance.SupplierLocation.City.ToLower() == city.Trim().ToLower()))
                 .Select(balance => new CatalogOfferResponse(
                     offer.Id, offer.ProductId, offer.Product.Name, offer.Product.Description,
                     offer.Product.Category.Name, offer.Product.ProductType, offer.Product.UnitCode,
@@ -35,6 +39,7 @@ public sealed class CustomerCatalogController(PgDbContext dbContext) : BaseApiCo
             .Where(item => item.AvailableQuantity > 0);
 
         return Ok(await query.OrderBy(item => item.ProductName).ThenBy(item => item.UnitPrice)
+            .ThenBy(item => item.OfferId).ThenBy(item => item.SupplierLocationId)
             .ToPagedResultAsync(page, cancellationToken));
     }
 }

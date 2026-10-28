@@ -21,7 +21,7 @@ The application is organized into logical business modules while remaining a sin
 
 Modules share the same application process and database. They communicate through application services and internal method calls rather than inter-service HTTP requests.
 
-**Current implementation status:** the shared API infrastructure, EF Core persistence model, and Identity endpoints for registration, login, refresh, logout, and the current-user profile are implemented. The other business modules shown below describe the planned structure; their workflows and API endpoints are still being built.
+**Current implementation status:** shared API infrastructure, EF Core persistence, identity, customer account/catalog/checkout/order APIs, rider onboarding and verification, availability, preferred areas, delivery assignment/status/proof/cash collection, and SignalR location updates are implemented. Checkout uses a configured flat delivery fee and creates a COD payment intent atomically. Location-based delivery-fee rules, online payment providers, rider earnings/payouts, reviews, and notifications remain planned work.
 
 ## 2. Architecture Principles
 
