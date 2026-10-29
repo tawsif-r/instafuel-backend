@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Instafuel.Api.Authorization;
 using Instafuel.Api.Controllers;
 using Instafuel.Api.Exceptions;
 using Instafuel.Api.Models;
@@ -8,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Instafuel.Api.Modules.Suppliers;
 
-[Authorize(Roles = RoleNames.Customer)]
+[Authorize(Policy = AuthorizationPolicies.Customer)]
 [Route("api/v1/supplier/applications")]
 public sealed class SupplierApplicationsController(PgDbContext dbContext) : BaseApiController
 {
@@ -60,7 +61,7 @@ public sealed class SupplierApplicationsController(PgDbContext dbContext) : Base
     }
 }
 
-[Authorize(Policy = "AdminOnly")]
+[Authorize(Policy = AuthorizationPolicies.Admin)]
 [Route("api/v1/admin/suppliers")]
 public sealed class AdminSuppliersController(PgDbContext dbContext) : BaseApiController
 {

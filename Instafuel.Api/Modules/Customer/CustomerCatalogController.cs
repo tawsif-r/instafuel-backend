@@ -1,4 +1,5 @@
 using Instafuel.Api.Common.Pagination;
+using Instafuel.Api.Authorization;
 using Instafuel.Api.Controllers;
 using Instafuel.Api.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -7,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Instafuel.Api.Modules.Customer;
 
-[Authorize(Roles = RoleNames.Customer)]
+[Authorize(Policy = AuthorizationPolicies.Customer)]
 [Route("api/v1/customer")]
 public sealed class CustomerCatalogController(PgDbContext dbContext) : BaseApiController
 {

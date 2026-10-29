@@ -39,6 +39,8 @@ public sealed class RegisterRiderRequestValidator : AbstractValidator<RegisterRi
         RuleFor(request => request).Must(request => !string.IsNullOrWhiteSpace(request.Email)
                 || !string.IsNullOrWhiteSpace(request.Phone))
             .WithName("Contact").WithMessage("Provide an email address, a phone number, or both.");
+        RuleFor(request => request.Phone).NotEmpty()
+            .WithMessage("Riders must provide a phone number that can be verified.");
         RuleFor(request => request.VehicleType).NotEmpty().MaximumLength(50);
         RuleFor(request => request.VehicleRegistrationNumber).NotEmpty().MaximumLength(50);
         RuleFor(request => request.DeviceInfo).MaximumLength(200);

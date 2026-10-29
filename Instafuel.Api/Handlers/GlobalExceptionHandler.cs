@@ -50,6 +50,16 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 "Forbidden",
                 exception.Message),
 
+            TooManyRequestsException => (
+                StatusCodes.Status429TooManyRequests,
+                "Too many requests",
+                exception.Message),
+
+            ServiceUnavailableException => (
+                StatusCodes.Status503ServiceUnavailable,
+                "Service unavailable",
+                exception.Message),
+
             _ => (
                 StatusCodes.Status500InternalServerError,
                 "Internal server error",

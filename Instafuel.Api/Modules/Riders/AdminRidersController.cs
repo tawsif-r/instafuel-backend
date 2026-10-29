@@ -1,3 +1,4 @@
+using Instafuel.Api.Authorization;
 using Instafuel.Api.Controllers;
 using Instafuel.Api.Exceptions;
 using Instafuel.Api.Models;
@@ -8,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Instafuel.Api.Modules.Riders;
 
-[Authorize(Policy = "AdminOnly")]
+[Authorize(Policy = AuthorizationPolicies.Admin)]
 [Route("api/v1/admin/riders")]
 public sealed class AdminRidersController(PgDbContext dbContext) : BaseApiController
 {
@@ -81,7 +82,7 @@ public sealed class AdminRidersController(PgDbContext dbContext) : BaseApiContro
             .Where(profile => profile.VerificationStatus == "pending")
             .OrderBy(profile => profile.CreatedAt)
             .Select(profile => new RiderVerificationRecord(profile.UserId, profile.User.FullName,
-                profile.User.Phone, profile.VehicleType, profile.VehicleRegistrationNumber,
+                profile.User.Phone, profile.User.PhoneVerifiedAt != null, profile.VehicleType, profile.VehicleRegistrationNumber,
                 profile.VerificationStatus, profile.CreatedAt))
             .ToListAsync(cancellationToken);
         return Ok(pending);
@@ -93,9 +94,11 @@ public sealed class AdminRidersController(PgDbContext dbContext) : BaseApiContro
     {
         if (request.Status is not ("verified" or "rejected" or "suspended"))
             throw new AppValidationException(nameof(request.Status), "Status must be verified, rejected, or suspended.");
-        var profile = await dbContext.RiderProfiles.SingleOrDefaultAsync(
+        var profile = await dbContext.RiderProfiles.Include(item => item.User).SingleOrDefaultAsync(
             item => item.UserId == riderUserId, cancellationToken);
         if (profile is null) return NotFound();
+        if (request.Status == "verified" && profile.User.PhoneVerifiedAt is null)
+            throw new ConflictException("The rider must verify their phone before admin approval.");
         profile.VerificationStatus = request.Status;
         profile.IsAvailable = false;
         profile.UpdatedAt = DateTime.UtcNow;
@@ -107,5 +110,5 @@ public sealed class AdminRidersController(PgDbContext dbContext) : BaseApiContro
 public sealed record RiderVerificationRequest(string Status);
 public sealed record FailedDeliveryRecord(Guid DeliveryId, string OrderNumber, string SupplierName,
     Guid? PreviousRiderId, string SupplierOrderStatus, string DeliveryCity, DateTime CreatedAt);
-public sealed record RiderVerificationRecord(Guid UserId, string FullName, string? Phone,
+public sealed record RiderVerificationRecord(Guid UserId, string FullName, string? Phone, bool PhoneVerified,
     string? VehicleType, string? VehicleRegistrationNumber, string VerificationStatus, DateTime SubmittedAt);

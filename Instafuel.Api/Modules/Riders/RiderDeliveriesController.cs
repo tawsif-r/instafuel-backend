@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using Instafuel.Api.Authorization;
 using Instafuel.Api.Controllers;
 using Instafuel.Api.Exceptions;
 using Instafuel.Api.Models;
@@ -10,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Instafuel.Api.Modules.Riders;
 
-[Authorize(Roles = RoleNames.Rider)]
+[Authorize(Policy = AuthorizationPolicies.Rider)]
 [Route("api/v1/rider")]
 public sealed class RiderDeliveriesController(
     PgDbContext dbContext,

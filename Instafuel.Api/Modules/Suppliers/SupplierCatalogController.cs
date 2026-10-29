@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Instafuel.Api.Authorization;
 using Instafuel.Api.Controllers;
 using Instafuel.Api.Exceptions;
 using Instafuel.Api.Models;
@@ -9,7 +10,7 @@ using Npgsql;
 
 namespace Instafuel.Api.Modules.Suppliers;
 
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.SupplierMember)]
 [Route("api/v1/supplier/{supplierId:guid}")]
 public sealed class SupplierCatalogController(PgDbContext dbContext) : BaseApiController
 {
@@ -19,8 +20,6 @@ public sealed class SupplierCatalogController(PgDbContext dbContext) : BaseApiCo
     [HttpGet("products")]
     public async Task<ActionResult<IReadOnlyList<SupplierProductResponse>>> GetProducts(Guid supplierId, CancellationToken cancellationToken)
     {
-        var userId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, userId, cancellationToken);
         var products = await dbContext.Products.AsNoTracking()
             .Where(product => product.IsActive && product.Category.IsActive)
             .OrderBy(product => product.Category.Name).ThenBy(product => product.Name)
@@ -33,8 +32,6 @@ public sealed class SupplierCatalogController(PgDbContext dbContext) : BaseApiCo
     [HttpGet("offers")]
     public async Task<ActionResult<IReadOnlyList<SupplierOfferResponse>>> GetOffers(Guid supplierId, CancellationToken cancellationToken)
     {
-        var userId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, userId, cancellationToken);
         var offers = await dbContext.SupplierOffers.AsNoTracking().Where(offer => offer.SupplierId == supplierId)
             .OrderBy(offer => offer.Product.Name)
             .Select(offer => new SupplierOfferResponse(offer.Id, offer.ProductId, offer.Product.Name,
@@ -44,12 +41,11 @@ public sealed class SupplierCatalogController(PgDbContext dbContext) : BaseApiCo
     }
 
     [HttpPost("offers")]
+    [Authorize(Policy = AuthorizationPolicies.SupplierManager)]
     public async Task<ActionResult<SupplierOfferResponse>> CreateOffer(Guid supplierId,
         CreateSupplierOfferRequest request, CancellationToken cancellationToken)
     {
         ValidateOffer(request.UnitPrice, request.SellerSku);
-        var userId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, userId, cancellationToken, "owner", "manager");
         if (request.ProductId == Guid.Empty) throw new AppValidationException(nameof(request.ProductId), "A valid product is required.");
         var product = await dbContext.Products.AsNoTracking().SingleOrDefaultAsync(item => item.Id == request.ProductId
             && item.IsActive && item.Category.IsActive, cancellationToken);
@@ -94,14 +90,13 @@ public sealed class SupplierCatalogController(PgDbContext dbContext) : BaseApiCo
     }
 
     [HttpPut("offers/{offerId:guid}")]
+    [Authorize(Policy = AuthorizationPolicies.SupplierManager)]
     public async Task<ActionResult<SupplierOfferResponse>> UpdateOffer(Guid supplierId, Guid offerId,
         UpdateSupplierOfferRequest request, CancellationToken cancellationToken)
     {
         ValidateOffer(request.UnitPrice, request.SellerSku);
         if (request.Status is not ("active" or "paused" or "discontinued"))
             throw new AppValidationException(nameof(request.Status), "Status must be active, paused, or discontinued.");
-        var userId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, userId, cancellationToken, "owner", "manager");
         var offer = await dbContext.SupplierOffers.Include(item => item.Product)
             .SingleOrDefaultAsync(item => item.Id == offerId && item.SupplierId == supplierId, cancellationToken);
         if (offer is null) return NotFound();
@@ -120,8 +115,6 @@ public sealed class SupplierCatalogController(PgDbContext dbContext) : BaseApiCo
     [HttpGet("inventory")]
     public async Task<ActionResult<IReadOnlyList<SupplierInventoryResponse>>> GetInventory(Guid supplierId, CancellationToken cancellationToken)
     {
-        var userId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, userId, cancellationToken);
         var rows = await dbContext.InventoryBalances.AsNoTracking()
             .Where(balance => balance.SupplierLocation.SupplierId == supplierId)
             .OrderBy(balance => balance.SupplierLocation.Name).ThenBy(balance => balance.SupplierOffer.Product.Name)
@@ -134,11 +127,13 @@ public sealed class SupplierCatalogController(PgDbContext dbContext) : BaseApiCo
     }
 
     [HttpPost("inventory/{locationId:guid}/{offerId:guid}/receipts")]
+    [Authorize(Policy = AuthorizationPolicies.SupplierManager)]
     public Task<IActionResult> ReceiveStock(Guid supplierId, Guid locationId, Guid offerId,
         StockReceiptRequest request, CancellationToken cancellationToken) =>
         ApplyStockMovement(supplierId, locationId, offerId, request.Quantity, "receipt", request.Notes, cancellationToken);
 
     [HttpPost("inventory/{locationId:guid}/{offerId:guid}/adjustments")]
+    [Authorize(Policy = AuthorizationPolicies.SupplierManager)]
     public Task<IActionResult> AdjustStock(Guid supplierId, Guid locationId, Guid offerId,
         StockAdjustmentRequest request, CancellationToken cancellationToken) =>
         ApplyStockMovement(supplierId, locationId, offerId, request.QuantityDelta, "adjustment", request.Notes, cancellationToken);
@@ -151,8 +146,6 @@ public sealed class SupplierCatalogController(PgDbContext dbContext) : BaseApiCo
         if (movementType == "receipt" && delta < 0)
             throw new AppValidationException(nameof(delta), "A stock receipt must be a positive quantity.");
         if (notes?.Length > 1000) throw new AppValidationException(nameof(notes), "Notes must be at most 1000 characters.");
-        var userId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, userId, cancellationToken);
         var balance = await dbContext.InventoryBalances.AsNoTracking().Where(item =>
                 item.SupplierLocationId == locationId && item.SupplierOfferId == offerId
                 && item.SupplierLocation.SupplierId == supplierId && item.SupplierOffer.SupplierId == supplierId)
