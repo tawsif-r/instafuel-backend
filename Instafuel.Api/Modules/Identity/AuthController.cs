@@ -11,13 +11,18 @@ namespace Instafuel.Api.Modules.Identity;
 public sealed class AuthController : BaseApiController
 {
     private readonly IAuthService _authService;
+    private readonly IOtpService _otpService;
+    private readonly IHostEnvironment _environment;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, IOtpService otpService, IHostEnvironment environment)
     {
         _authService = authService;
+        _otpService = otpService;
+        _environment = environment;
     }
 
     [HttpPost("register")]
+    [AllowAnonymous]
     [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthResponse>> Register(
         RegisterRequest request,
@@ -25,6 +30,7 @@ public sealed class AuthController : BaseApiController
         Ok(await _authService.RegisterAsync(request, cancellationToken));
 
     [HttpPost("register/rider")]
+    [AllowAnonymous]
     [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthResponse>> RegisterRider(
         RegisterRiderRequest request,
@@ -32,6 +38,7 @@ public sealed class AuthController : BaseApiController
         Ok(await _authService.RegisterRiderAsync(request, cancellationToken));
 
     [HttpPost("login")]
+    [AllowAnonymous]
     [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthResponse>> Login(
         LoginRequest request,
@@ -39,6 +46,7 @@ public sealed class AuthController : BaseApiController
         Ok(await _authService.LoginAsync(request, cancellationToken));
 
     [HttpPost("refresh")]
+    [AllowAnonymous]
     [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthResponse>> Refresh(
         RefreshRequest request,
@@ -46,6 +54,7 @@ public sealed class AuthController : BaseApiController
         Ok(await _authService.RefreshAsync(request, cancellationToken));
 
     [HttpPost("logout")]
+    [AllowAnonymous]
     [EnableRateLimiting("auth")]
     public async Task<IActionResult> Logout(
         RefreshRequest request,
@@ -54,6 +63,26 @@ public sealed class AuthController : BaseApiController
         await _authService.RevokeRefreshTokenAsync(request, cancellationToken);
         return NoContent();
     }
+
+    [HttpPost("otp/send")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<SendOtpResponse>> SendOtp(
+        SendOtpRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _otpService.SendAsync(request, cancellationToken);
+        return Accepted(new SendOtpResponse(result.Accepted,
+            _environment.IsDevelopment() ? result.DevelopmentCode : null));
+    }
+
+    [HttpPost("otp/verify")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<VerifyOtpResponse>> VerifyOtp(
+        VerifyOtpRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await _otpService.VerifyAsync(request, cancellationToken));
 
     [Authorize]
     [HttpGet("me")]

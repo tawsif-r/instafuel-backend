@@ -345,6 +345,54 @@ namespace Instafuel.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Instafuel.Api.Models.EmailChangeRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("NewEmail")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("new_email");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_email_change_requests");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_email_change_requests_token_hash");
+
+                    b.HasIndex("UserId", "ExpiresAt")
+                        .HasDatabaseName("ix_email_change_requests_user_id_expires_at");
+
+                    b.ToTable("email_change_requests", (string)null);
+                });
+
             modelBuilder.Entity("Instafuel.Api.Models.InventoryBalance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -678,6 +726,115 @@ namespace Instafuel.Api.Migrations
 
                             t.HasCheckConstraint("ck_order_items_unit_price", "unit_price >= 0");
                         });
+                });
+
+            modelBuilder.Entity("Instafuel.Api.Models.OtpCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code_hash");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("phone");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("purpose");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_otp_codes");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_otp_codes_expires_at");
+
+                    b.HasIndex("Phone", "Purpose", "CreatedAt")
+                        .HasDatabaseName("ix_otp_codes_phone_purpose_created_at");
+
+                    b.HasIndex("UserId", "Purpose", "ExpiresAt")
+                        .HasDatabaseName("ix_otp_codes_user_id_purpose_expires_at");
+
+                    b.ToTable("otp_codes", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_otp_codes_attempts", "attempts >= 0 AND attempts <= 5");
+
+                            t.HasCheckConstraint("ck_otp_codes_purpose", "purpose IN ('signup', 'login', 'reset')");
+                        });
+                });
+
+            modelBuilder.Entity("Instafuel.Api.Models.PasswordResetRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_password_reset_requests");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_password_reset_requests_token_hash");
+
+                    b.HasIndex("UserId", "ExpiresAt")
+                        .HasDatabaseName("ix_password_reset_requests_user_id_expires_at");
+
+                    b.ToTable("password_reset_requests", (string)null);
                 });
 
             modelBuilder.Entity("Instafuel.Api.Models.Payment", b =>
@@ -1434,6 +1591,10 @@ namespace Instafuel.Api.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("email");
 
+                    b.Property<DateTime?>("EmailVerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("email_verified_at");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -1454,6 +1615,10 @@ namespace Instafuel.Api.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("phone");
+
+                    b.Property<DateTime?>("PhoneVerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("phone_verified_at");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1584,6 +1749,18 @@ namespace Instafuel.Api.Migrations
                     b.Navigation("RecordedByUser");
                 });
 
+            modelBuilder.Entity("Instafuel.Api.Models.EmailChangeRequest", b =>
+                {
+                    b.HasOne("Instafuel.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_email_change_requests_users_user_id");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Instafuel.Api.Models.InventoryBalance", b =>
                 {
                     b.HasOne("Instafuel.Api.Models.SupplierLocation", "SupplierLocation")
@@ -1648,6 +1825,29 @@ namespace Instafuel.Api.Migrations
                     b.Navigation("SupplierOffer");
 
                     b.Navigation("SupplierOrder");
+                });
+
+            modelBuilder.Entity("Instafuel.Api.Models.OtpCode", b =>
+                {
+                    b.HasOne("Instafuel.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_otp_codes_users_user_id");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Instafuel.Api.Models.PasswordResetRequest", b =>
+                {
+                    b.HasOne("Instafuel.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_password_reset_requests_users_user_id");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Instafuel.Api.Models.Payment", b =>

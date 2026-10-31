@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Instafuel.Api.Common.Pagination;
+using Instafuel.Api.Authorization;
 using Instafuel.Api.Controllers;
 using Instafuel.Api.Exceptions;
 using Instafuel.Api.Models;
@@ -9,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Instafuel.Api.Modules.Suppliers;
 
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.SupplierMember)]
 [Route("api/v1/supplier/{supplierId:guid}/orders")]
 public sealed class SupplierOrdersController(PgDbContext dbContext) : BaseApiController
 {
@@ -17,8 +18,6 @@ public sealed class SupplierOrdersController(PgDbContext dbContext) : BaseApiCon
     public async Task<ActionResult<PagedResult<SupplierOrderResponse>>> GetOrders(Guid supplierId,
         [FromQuery] PagedRequest page, [FromQuery] string? status, CancellationToken cancellationToken)
     {
-        var userId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, userId, cancellationToken);
         if (!string.IsNullOrWhiteSpace(status)
             && status is not ("pending" or "accepted" or "rejected" or "preparing" or "ready" or "dispatched" or "delivered" or "cancelled"))
             throw new AppValidationException(nameof(status), "Unsupported supplier order status filter.");
@@ -45,8 +44,6 @@ public sealed class SupplierOrdersController(PgDbContext dbContext) : BaseApiCon
             throw new AppValidationException(nameof(request.Status), "Supplier may set accepted, rejected, preparing, or ready.");
         if (request.Notes?.Length > 1000) throw new AppValidationException(nameof(request.Notes), "Notes must be at most 1000 characters.");
         var userId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, userId, cancellationToken,
-            "owner", "manager", "staff");
 
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
         var supplierOrder = await dbContext.SupplierOrders.AsNoTracking()

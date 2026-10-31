@@ -36,10 +36,15 @@ public sealed class AuthService : IAuthService
 
     public async Task<AuthResponse> RegisterRiderAsync(
         RegisterRiderRequest request,
-        CancellationToken cancellationToken) =>
-        await RegisterForRoleAsync(
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Phone))
+            throw new AppValidationException(nameof(request.Phone), "Riders must provide a phone number that can be verified.");
+
+        return await RegisterForRoleAsync(
             new RegisterRequest(request.FullName, request.Email, request.Password, request.Phone, request.DeviceInfo),
             RoleNames.Rider, request, cancellationToken);
+    }
 
     private async Task<AuthResponse> RegisterForRoleAsync(
         RegisterRequest request,

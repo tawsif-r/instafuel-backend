@@ -51,3 +51,13 @@ public sealed class ForbiddenException : Exception
     public ForbiddenException(string message = "You are not allowed to perform this operation.")
         : base(message) { }
 }
+
+public sealed class TooManyRequestsException : Exception
+{
+    public TooManyRequestsException(string message) : base(message) { }
+}
+
+public sealed class ServiceUnavailableException : Exception
+{
+    public ServiceUnavailableException(string message) : base(message) { }
+}

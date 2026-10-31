@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Instafuel.Api.Authorization;
 using Instafuel.Api.Controllers;
 using Instafuel.Api.Exceptions;
 using Instafuel.Api.Models;
@@ -8,15 +9,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Instafuel.Api.Modules.Suppliers;
 
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.SupplierMember)]
 [Route("api/v1/supplier/{supplierId:guid}/locations")]
 public sealed class SupplierLocationsController(PgDbContext dbContext) : BaseApiController
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<SupplierLocationResponse>>> GetLocations(Guid supplierId, CancellationToken cancellationToken)
     {
-        var userId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, userId, cancellationToken);
         var locations = await dbContext.SupplierLocations.AsNoTracking().Where(item => item.SupplierId == supplierId)
             .OrderBy(item => item.Name)
             .Select(item => new SupplierLocationResponse(item.Id, item.Name, item.AddressLine, item.City,
@@ -26,12 +25,11 @@ public sealed class SupplierLocationsController(PgDbContext dbContext) : BaseApi
     }
 
     [HttpPost]
+    [Authorize(Policy = AuthorizationPolicies.SupplierManager)]
     public async Task<ActionResult<SupplierLocationResponse>> CreateLocation(Guid supplierId,
         SupplierLocationRequest request, CancellationToken cancellationToken)
     {
         Validate(request);
-        var userId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, userId, cancellationToken, "owner", "manager");
         var location = new SupplierLocation
         {
             SupplierId = supplierId,
@@ -60,12 +58,11 @@ public sealed class SupplierLocationsController(PgDbContext dbContext) : BaseApi
     }
 
     [HttpPut("{locationId:guid}")]
+    [Authorize(Policy = AuthorizationPolicies.SupplierManager)]
     public async Task<ActionResult<SupplierLocationResponse>> UpdateLocation(Guid supplierId, Guid locationId,
         SupplierLocationRequest request, CancellationToken cancellationToken)
     {
         Validate(request);
-        var userId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, userId, cancellationToken, "owner", "manager");
         var location = await dbContext.SupplierLocations.SingleOrDefaultAsync(item =>
             item.Id == locationId && item.SupplierId == supplierId, cancellationToken);
         if (location is null) return NotFound();
@@ -79,10 +76,9 @@ public sealed class SupplierLocationsController(PgDbContext dbContext) : BaseApi
     }
 
     [HttpDelete("{locationId:guid}")]
+    [Authorize(Policy = AuthorizationPolicies.SupplierManager)]
     public async Task<IActionResult> DeactivateLocation(Guid supplierId, Guid locationId, CancellationToken cancellationToken)
     {
-        var userId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, userId, cancellationToken, "owner", "manager");
         var location = await dbContext.SupplierLocations.SingleOrDefaultAsync(item =>
             item.Id == locationId && item.SupplierId == supplierId, cancellationToken);
         if (location is null) return NotFound();

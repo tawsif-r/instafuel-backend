@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Instafuel.Api.Authorization;
 using Instafuel.Api.Controllers;
 using Instafuel.Api.Exceptions;
 using Instafuel.Api.Models;
@@ -9,7 +10,7 @@ using Npgsql;
 
 namespace Instafuel.Api.Modules.Customer;
 
-[Authorize(Roles = RoleNames.Customer)]
+[Authorize(Policy = AuthorizationPolicies.Customer)]
 [Route("api/v1/customer")]
 public sealed class CustomerProfileController(PgDbContext dbContext) : BaseApiController
 {
@@ -30,14 +31,23 @@ public sealed class CustomerProfileController(PgDbContext dbContext) : BaseApiCo
     {
         if (string.IsNullOrWhiteSpace(request.FullName) || request.FullName.Trim().Length > 150)
             throw new AppValidationException(nameof(request.FullName), "Name is required and must be at most 150 characters.");
-        if (request.Phone?.Length > 30)
-            throw new AppValidationException(nameof(request.Phone), "Phone must be at most 30 characters.");
+        if (!string.IsNullOrWhiteSpace(request.Phone)
+            && (request.Phone.Length > 30
+                || !System.Text.RegularExpressions.Regex.IsMatch(request.Phone, @"^\+?[0-9\s().-]{7,30}$")
+                || request.Phone.Count(character => character is >= '0' and <= '9') < 7))
+            throw new AppValidationException(nameof(request.Phone), "Phone must be valid and contain at least 7 digits.");
 
         var userId = CustomerControllerSupport.GetUserId(User);
         var user = await dbContext.Users.SingleOrDefaultAsync(item => item.Id == userId, cancellationToken);
         if (user is null) return NotFound();
+        var phone = request.Phone is null
+            ? user.Phone
+            : Instafuel.Api.Modules.Identity.AuthContactNormalizer.NormalizePhone(request.Phone);
+        if (!string.Equals(user.Phone, phone, StringComparison.Ordinal))
+            throw new ConflictException("Use POST /api/v1/me/phone/change/request and verify the OTP before changing your phone number.");
+        if (user.Email is null && phone is null)
+            throw new AppValidationException("Contact", "At least one email address or phone number is required.");
         user.FullName = request.FullName.Trim();
-        user.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
         user.UpdatedAt = DateTime.UtcNow;
         try
         {

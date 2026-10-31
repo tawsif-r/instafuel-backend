@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Instafuel.Api.Authorization;
 using Instafuel.Api.Controllers;
 using Instafuel.Api.Exceptions;
 using Instafuel.Api.Models;
@@ -9,7 +10,7 @@ using Npgsql;
 
 namespace Instafuel.Api.Modules.Customer;
 
-[Authorize(Roles = RoleNames.Customer)]
+[Authorize(Policy = AuthorizationPolicies.Customer)]
 [Route("api/v1/customer")]
 public sealed class CustomerPaymentsController(PgDbContext dbContext) : BaseApiController
 {

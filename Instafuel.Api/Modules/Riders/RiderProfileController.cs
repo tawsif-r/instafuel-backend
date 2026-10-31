@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Instafuel.Api.Authorization;
 using Instafuel.Api.Controllers;
 using Instafuel.Api.Exceptions;
 using Instafuel.Api.Models;
@@ -8,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Instafuel.Api.Modules.Riders;
 
-[Authorize(Roles = RoleNames.Rider)]
+[Authorize(Policy = AuthorizationPolicies.Rider)]
 [Route("api/v1/rider")]
 public sealed class RiderProfileController(PgDbContext dbContext) : BaseApiController
 {
@@ -88,6 +89,9 @@ public sealed class RiderProfileController(PgDbContext dbContext) : BaseApiContr
             ?? throw new NotFoundException("Rider profile was not found.");
         if (request.IsAvailable && profile.VerificationStatus != "verified")
             throw new ForbiddenException("Only verified riders can go online.");
+        if (request.IsAvailable && !await dbContext.Users.AsNoTracking()
+                .AnyAsync(user => user.Id == userId && user.PhoneVerifiedAt != null, cancellationToken))
+            throw new ForbiddenException("Verify your phone number before going online.");
         if (request.IsAvailable && profile.PreferredAreas.Count == 0)
             throw new ConflictException("Set at least one preferred area before going online.");
         profile.IsAvailable = request.IsAvailable;

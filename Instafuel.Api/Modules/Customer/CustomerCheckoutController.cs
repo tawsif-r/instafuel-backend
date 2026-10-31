@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Instafuel.Api.Authorization;
 using Instafuel.Api.Controllers;
 using Instafuel.Api.Exceptions;
 using Instafuel.Api.Models;
@@ -11,7 +12,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Instafuel.Api.Modules.Customer;
 
-[Authorize(Roles = RoleNames.Customer)]
+[Authorize(Policy = AuthorizationPolicies.Customer)]
 [Route("api/v1/customer")]
 public sealed class CustomerCheckoutController(PgDbContext dbContext, IConfiguration configuration) : BaseApiController
 {
@@ -29,6 +30,11 @@ public sealed class CustomerCheckoutController(PgDbContext dbContext, IConfigura
     {
         Validate(request);
         var userId = CustomerControllerSupport.GetUserId(User);
+        var hasUnverifiedPhone = await dbContext.Users.AsNoTracking()
+            .AnyAsync(user => user.Id == userId && user.Phone != null && user.PhoneVerifiedAt == null,
+                cancellationToken);
+        if (hasUnverifiedPhone)
+            throw new ForbiddenException("Verify your account phone number before placing an order.");
         var idempotencyKey = request.IdempotencyKey.Trim();
         var fingerprint = Fingerprint(request);
         var existingOrder = await dbContext.Orders.AsNoTracking()

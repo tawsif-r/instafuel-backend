@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Instafuel.Api.Authorization;
 using Instafuel.Api.Controllers;
 using Instafuel.Api.Exceptions;
 using Instafuel.Api.Models;
@@ -9,15 +10,13 @@ using Npgsql;
 
 namespace Instafuel.Api.Modules.Suppliers;
 
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.SupplierMember)]
 [Route("api/v1/supplier/{supplierId:guid}/members")]
 public sealed class SupplierMembersController(PgDbContext dbContext) : BaseApiController
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<SupplierMemberResponse>>> GetMembers(Guid supplierId, CancellationToken cancellationToken)
     {
-        var userId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, userId, cancellationToken);
         var members = await dbContext.SupplierMembers.AsNoTracking().Where(member => member.SupplierId == supplierId)
             .OrderBy(member => member.CreatedAt)
             .Select(member => new SupplierMemberResponse(member.UserId, member.User.FullName,
@@ -28,6 +27,7 @@ public sealed class SupplierMembersController(PgDbContext dbContext) : BaseApiCo
 
     // Adds an existing account directly. Email invitations are not sent because no email provider is configured.
     [HttpPost]
+    [Authorize(Policy = AuthorizationPolicies.SupplierOwner)]
     public async Task<ActionResult<SupplierMemberResponse>> AddMember(
         Guid supplierId, AddSupplierMemberRequest request, CancellationToken cancellationToken)
     {
@@ -36,8 +36,6 @@ public sealed class SupplierMembersController(PgDbContext dbContext) : BaseApiCo
             throw new AppValidationException(nameof(request.Email), "Provide a valid account email address.");
         if (request.Role is not ("manager" or "staff"))
             throw new AppValidationException(nameof(request.Role), "Member role must be manager or staff.");
-        var actorId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, actorId, cancellationToken, "owner");
         var email = request.Email.Trim().ToLowerInvariant();
         var user = await dbContext.Users.SingleOrDefaultAsync(item => item.Email == email && item.IsActive, cancellationToken);
         if (user is null) throw new NotFoundException("An active account with that email was not found.");
@@ -62,13 +60,12 @@ public sealed class SupplierMembersController(PgDbContext dbContext) : BaseApiCo
     }
 
     [HttpPut("{memberUserId:guid}/role")]
+    [Authorize(Policy = AuthorizationPolicies.SupplierOwner)]
     public async Task<IActionResult> UpdateRole(Guid supplierId, Guid memberUserId,
         UpdateSupplierMemberRoleRequest request, CancellationToken cancellationToken)
     {
         if (request.Role is not ("manager" or "staff"))
             throw new AppValidationException(nameof(request.Role), "Member role must be manager or staff.");
-        var actorId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, actorId, cancellationToken, "owner");
         var member = await dbContext.SupplierMembers.SingleOrDefaultAsync(item =>
             item.SupplierId == supplierId && item.UserId == memberUserId, cancellationToken);
         if (member is null) return NotFound();
@@ -80,10 +77,9 @@ public sealed class SupplierMembersController(PgDbContext dbContext) : BaseApiCo
     }
 
     [HttpDelete("{memberUserId:guid}")]
+    [Authorize(Policy = AuthorizationPolicies.SupplierOwner)]
     public async Task<IActionResult> RemoveMember(Guid supplierId, Guid memberUserId, CancellationToken cancellationToken)
     {
-        var actorId = SupplierControllerSupport.GetUserId(User);
-        await SupplierControllerSupport.RequireMemberAsync(dbContext, supplierId, actorId, cancellationToken, "owner");
         var member = await dbContext.SupplierMembers.SingleOrDefaultAsync(item =>
             item.SupplierId == supplierId && item.UserId == memberUserId, cancellationToken);
         if (member is null) return NotFound();
