@@ -30,7 +30,7 @@ class AppUser {
     return parts.take(2).map((p) => p[0].toUpperCase()).join();
   }
 
-  // Used to keep the logged-in session in shared_preferences.
+  // Same shape as the API's user JSON (extra API fields are ignored).
   Map<String, dynamic> toJson() => {
         'id': id,
         'fullName': fullName,
@@ -43,10 +43,34 @@ class AppUser {
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
         id: json['id'] as String,
         fullName: json['fullName'] as String,
-        email: json['email'] as String,
-        phone: json['phone'] as String,
+        email: json['email'] as String? ?? '',
+        phone: json['phone'] as String? ?? '',
         accountType: AccountType.values.byName(json['accountType'] as String),
         companyName: json['companyName'] as String?,
+      );
+}
+
+/// What login/register return: the user plus the token for later API calls.
+class AuthSession {
+  const AuthSession({required this.token, required this.expiresAt, required this.user});
+
+  final String token; // JWT, sent as "Authorization: Bearer <token>"
+  final DateTime expiresAt;
+  final AppUser user;
+
+  bool get isExpired => DateTime.now().isAfter(expiresAt);
+
+  Map<String, dynamic> toJson() => {
+        'token': token,
+        'expiresAt': expiresAt.toUtc().toIso8601String(),
+        'user': user.toJson(),
+      };
+
+  // Reads both the API response and what SessionStore saved.
+  factory AuthSession.fromJson(Map<String, dynamic> json) => AuthSession(
+        token: json['token'] as String,
+        expiresAt: DateTime.parse(json['expiresAt'] as String),
+        user: AppUser.fromJson(json['user'] as Map<String, dynamic>),
       );
 }
 

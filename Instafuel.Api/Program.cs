@@ -1,4 +1,7 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Instafuel.Api.Models;
 using Serilog;
 
@@ -65,6 +68,35 @@ builder.Services.AddDbContext<PgDbContext>(options =>
     )
 );
 
+// =======================
+// AUTH config (JWT bearer)
+// =======================
+// Tokens are issued by AuthController. Jwt:Key lives in appsettings.Development.json
+// for local work; in production set it through the Jwt__Key environment variable.
+var jwtKey = builder.Configuration["Jwt:Key"]
+    ?? throw new InvalidOperationException("Jwt:Key is not configured.");
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        // Keep claim names as they are in the token ("sub", "role") instead of long .NET URIs.
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            NameClaimType = "name",
+            RoleClaimType = "role"
+        };
+    });
+builder.Services.AddAuthorization();
+
+// Dev only: the Flutter web app runs on a random localhost port, so allow any origin.
+// Safe here because auth uses bearer tokens, not cookies.
+builder.Services.AddCors(o => o.AddPolicy("DevCors", p =>
+    p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
@@ -74,9 +106,12 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseCors("DevCors");
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();

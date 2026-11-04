@@ -18,6 +18,10 @@ public class PgDbContext : DbContext
     public DbSet<SupplierMember> SupplierMembers { get; set; }
     public DbSet<SupplierLocation> SupplierLocations { get; set; }
 
+    // Customer vehicles
+    public DbSet<CustomerVehicle> CustomerVehicles { get; set; }
+    public DbSet<CustomerVehicleDocument> CustomerVehicleDocuments { get; set; }
+
     // Products & pricing
     public DbSet<Category> Categories { get; set; }
     public DbSet<Product> Products { get; set; }
@@ -56,9 +60,51 @@ public class PgDbContext : DbContext
             e.Property(u => u.FullName).HasMaxLength(150).IsRequired();
             e.Property(u => u.Email).HasMaxLength(255);
             e.Property(u => u.Phone).HasMaxLength(20);
+            e.Property(u => u.Role).HasMaxLength(30);
+            e.Property(u => u.AccountType).HasMaxLength(30);
             // Unique, but NULLs are allowed (Postgres treats NULLs as distinct).
             e.HasIndex(u => u.Email).IsUnique();
             e.HasIndex(u => u.Phone).IsUnique();
+            e.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_User_Role", "\"Role\" IN ('customer', 'driver', 'supplier_staff', 'admin')");
+                t.HasCheckConstraint("CK_User_AccountType", "\"AccountType\" IN ('individual', 'corporate')");
+            });
+        });
+
+        // ---------- Customer vehicles ----------
+        modelBuilder.Entity<CustomerVehicle>(e =>
+        {
+            e.Property(v => v.Nickname).HasMaxLength(60).IsRequired();
+            e.Property(v => v.VehicleType).HasMaxLength(20);
+            e.Property(v => v.RegistrationNumber).HasMaxLength(30).IsRequired();
+            e.Property(v => v.FuelType).HasMaxLength(20);
+            e.Property(v => v.VerificationStatus).HasMaxLength(20);
+            e.Property(v => v.RejectionReason).HasMaxLength(300);
+            // One live registration per plate across all customers. Deleted (inactive)
+            // vehicles don't count, so a sold car can be registered by its new owner.
+            e.HasIndex(v => v.RegistrationNumber).IsUnique().HasFilter("\"IsActive\"");
+            e.HasOne(v => v.User).WithMany(u => u.CustomerVehicles)
+                .HasForeignKey(v => v.UserId).OnDelete(DeleteBehavior.Restrict);
+            e.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_CustomerVehicle_Type",
+                    "\"VehicleType\" IN ('car', 'motorcycle', 'microbus', 'pickup', 'truck', 'generator')");
+                t.HasCheckConstraint("CK_CustomerVehicle_FuelType", "\"FuelType\" IN ('octane', 'petrol', 'diesel')");
+                t.HasCheckConstraint("CK_CustomerVehicle_VerificationStatus",
+                    "\"VerificationStatus\" IN ('pending', 'verified', 'rejected')");
+            });
+        });
+
+        modelBuilder.Entity<CustomerVehicleDocument>(e =>
+        {
+            e.Property(d => d.Kind).HasMaxLength(30);
+            e.Property(d => d.FileName).HasMaxLength(255).IsRequired();
+            e.HasIndex(d => new { d.CustomerVehicleId, d.Kind }).IsUnique(); // one document per kind
+            e.HasOne(d => d.CustomerVehicle).WithMany(v => v.Documents)
+                .HasForeignKey(d => d.CustomerVehicleId).OnDelete(DeleteBehavior.Cascade);
+            e.ToTable(t => t.HasCheckConstraint("CK_CustomerVehicleDocument_Kind",
+                "\"Kind\" IN ('registration_certificate', 'fitness_certificate', 'number_plate_photo')"));
         });
 
         // ---------- Supplier ----------

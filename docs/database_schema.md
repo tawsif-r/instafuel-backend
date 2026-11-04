@@ -30,9 +30,22 @@ erDiagram
     CUSTOMER_VEHICLE {
         int customer_vehicle_id PK
         int user_id FK
+        string nickname
         string vehicle_type
-        string registration_number
-        string fuel_preference
+        string registration_number UK
+        string fuel_type
+        string verification_status
+        string rejection_reason
+        datetime verified_at
+        boolean is_active
+    }
+
+    CUSTOMER_VEHICLE_DOCUMENT {
+        int document_id PK
+        int customer_vehicle_id FK
+        string kind
+        string file_name
+        datetime uploaded_at
     }
 
     SUPPLIER {
@@ -140,6 +153,7 @@ erDiagram
 
     USER ||--o{ ADDRESS : has
     USER ||--o{ CUSTOMER_VEHICLE : owns
+    CUSTOMER_VEHICLE ||--o{ CUSTOMER_VEHICLE_DOCUMENT : has
     USER ||--o| SUPPLIER : operates
     USER ||--o| DRIVER : works_as
 
@@ -195,7 +209,7 @@ The `PAYMENT` table stores payment details for online payments and Cash on Deliv
 
 Drivers and vehicles are separate entities because they are assigned independently — any authorized driver can drive any available vehicle, and the pairing is captured per delivery.
 
-`CUSTOMER_VEHICLE` (formerly `VEHICLE`) is the customer's own car/vehicle used for fuel preference. It is unrelated to the delivery fleet and was renamed to avoid confusion.
+`CUSTOMER_VEHICLE` (formerly `VEHICLE`) is the customer's own car/vehicle (or generator). It is unrelated to the delivery fleet and was renamed to avoid confusion. Orders may only include `VERIFIED` vehicles, and the driver matches `registration_number` against the plate before fuelling. `CUSTOMER_VEHICLE_DOCUMENT` holds one document per kind (registration certificate, fitness certificate, number plate photo); an admin reviews them and sets `verification_status` (`PENDING`, `VERIFIED`, `REJECTED` + `rejection_reason`). A registration number can belong to only one active vehicle.
 
 Separating `DELIVERY` from `ORDERS` makes it possible to track delivery progress independently of the order's overall status.
 

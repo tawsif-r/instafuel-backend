@@ -183,8 +183,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
                         : const Text('Create account'),
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const Text('Already have an account?'),
                       TextButton(onPressed: () => context.go('/login'), child: const Text('Log in')),

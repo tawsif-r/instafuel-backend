@@ -32,6 +32,7 @@ Instafuel.Api/
 | Delete rules | `Restrict` for business records (orders, payments, deliveries, drivers, vehicles). `Cascade` only for child rows that mean nothing alone (order items, status history, inventory movements, supplier members). |
 | Deleting | Soft delete (`IsActive = false` or a status) for anything other records point at. No hard deletes from the API. |
 | Requests vs responses | Clients send `Dtos/*Request` records. Responses return the entity directly. `User.PasswordHash` is `[JsonIgnore]`. JSON uses `ReferenceHandler.IgnoreCycles`. |
+| Auth | JWT bearer tokens from `AuthController`. Passwords hashed with ASP.NET Core Identity's `PasswordHasher<User>` (PBKDF2, salted). Protect an endpoint with `[Authorize]` (or `[Authorize(Roles = "admin")]`). |
 | Errors | Each action has a try/catch that logs with `ILogger` and returns 500 with a short message (same pattern as `TestsController`). Validation → 400, missing → 404, duplicates/busy resources → 409. |
 
 ## 4. Entities by module
@@ -40,7 +41,8 @@ Logical design is in [database_schema.md](database_schema.md); this is what the 
 
 | Module (plan.md) | Entities |
 |---|---|
-| Users | `User` |
+| Customer vehicles | `CustomerVehicle` (customer's own car/generator, verification status), `CustomerVehicleDocument` (one per kind, file name only for now) |
+| Users | `User` (`Role`: customer / driver / supplier_staff / admin, `AccountType`: individual / corporate) |
 | Suppliers | `Supplier`, `SupplierMember` (user ↔ supplier, composite key), `SupplierLocation` |
 | Products & pricing | `Category` (self-referencing tree), `Product`, `SupplierOffer` (supplier's price for a product) |
 | Inventory | `InventoryBalance` (one row per location + offer), `InventoryMovement` (audit trail) |
@@ -54,6 +56,9 @@ All under `/api`. Swagger UI at `/swagger` in Development.
 
 | Resource | Endpoints |
 |---|---|
+| `auth` | `POST register` (customer sign-up), `POST login` (email or phone), `GET me` (needs token). Register/login return `{ token, expiresAt, user }`. |
+| `me/vehicles` | Logged-in customer's vehicles (token required): `GET`, `GET {id}`, `POST`, `PUT {id}`, `DELETE {id}` (soft delete) |
+| `customer-vehicles` | Admin only: `GET ?status=pending` (review queue), `PATCH {id}/verification` (verified / rejected + reason) |
 | `users` | `GET`, `GET {id}`, `POST`, `PUT {id}`, `DELETE {id}` (deactivate) |
 | `categories` | `GET`, `GET {id}`, `POST`, `PUT {id}`, `DELETE {id}` (deactivate) |
 | `products` | `GET ?categoryId`, `GET {id}`, `POST`, `PUT {id}`, `DELETE {id}` (deactivate) |
@@ -67,6 +72,21 @@ All under `/api`. Swagger UI at `/swagger` in Development.
 No endpoints yet for supplier locations/offers/members, inventory, or refunds.
 
 ## 6. Key flows
+
+### Register / login (`/api/auth`)
+1. `register`: email is trimmed + lowercased, email and phone must be unique (409 otherwise), password ≥ 8 chars. New users get `Role = "customer"`.
+2. `login`: finds an active user by email or phone and verifies the hash. Unknown user and wrong password give the same 401 message. Old-format hashes are upgraded on login.
+3. Token: HS256 JWT with `sub` (user id), `email`, `name`, `role`; valid `Jwt:ExpiryDays` (7). Claims keep their short names (`MapInboundClaims = false`), so read the id with `User.FindFirst("sub")`.
+4. Config: `Jwt:Issuer`/`Audience`/`ExpiryDays` in `appsettings.json`. `Jwt:Key` (signing secret) is in `appsettings.Development.json` for local use only; in production set the `Jwt__Key` environment variable to a new random value (≥ 32 bytes).
+5. CORS: any origin is allowed in Development only (Flutter web runs on a random port). Production needs a real origin list.
+
+### Customer vehicle verification
+1. Customer saves a vehicle with its documents (`POST/PUT api/me/vehicles`). The plate is normalized (trim, uppercase, single spaces); an active plate already registered by anyone → 409.
+2. Documents are the full list each save: one per kind, a kind left out is removed.
+3. A new vehicle, a plate change or a document change sets `VerificationStatus = "pending"` (and clears any rejection). Nickname/fuel changes keep the current status.
+4. An admin verifies or rejects (`PATCH api/customer-vehicles/{id}/verification`). Rejecting needs a reason, which the app shows the customer.
+5. Dev shortcut: `CustomerVehicles:AutoVerifyWhenComplete = true` (only in `appsettings.Development.json`) verifies a vehicle as soon as all 3 documents are present, so orders can be tried without an admin. Keep it off in production.
+6. To make a dev admin: `UPDATE "Users" SET "Role" = 'admin' WHERE "Email" = '...';` then log in again (the role is in the token).
 
 ### Order creation (`POST /api/orders`)
 1. Client sends customer, recipient/address and a list of `{ supplierOfferId, quantity }`.
@@ -92,7 +112,8 @@ pending ──assign──► assigned ──► dispatched ──► in_transit
 
 ## 7. Not done yet (known gaps)
 
-- Auth and role-based access (plan.md §2.9). Anyone can call any endpoint right now.
+- Role-based access (plan.md §2.9): auth exists, but only `GET /api/auth/me` requires a token. All other endpoints are still open; add `[Authorize]` per controller as the apps start sending tokens.
+- No refresh tokens, logout revocation, password reset or email/phone verification yet.
 - 24h order lead time: `Order` has no requested delivery time field yet.
 - Stock checks/reservation on order, inventory movements on delivery.
 - Delivery fee, discount and tax rules (currently 0).
@@ -112,7 +133,7 @@ dotnet ef database update
 
 Flutter (Android + Web), Riverpod, go_router. Details in [instafuel_customer/README.md](../instafuel_customer/README.md).
 
-- UI talks only to repository interfaces (`lib/data/repositories.dart`). They're backed by in-memory mocks for now. `lib/data/providers.dart` is the single place to switch to API implementations.
+- UI talks only to repository interfaces (`lib/data/repositories.dart`). Auth and vehicles use the real API (`ApiAuthRepository`, `ApiVehicleRepository`; token in `flutter_secure_storage`); orders, payments and corporate are in-memory mocks for now. `lib/data/providers.dart` is the single place to switch to API implementations.
 - Model/status names match the API (`OrderStatus`, `DeliveryStatus`, payment methods).
 - **Orders are a list of lines, one per vehicle** (`vehicle + fuel + litres`). One order can fuel several vehicles, and the driver checks each vehicle's number plate separately.
 
@@ -120,8 +141,7 @@ Flutter (Android + Web), Riverpod, go_router. Details in [instafuel_customer/REA
 
 | App feature | Needed in the API |
 |---|---|
-| Register / login | Auth endpoints, password hashing, tokens (JWT). |
-| Customer vehicles + documents | `CustomerVehicle` table (see `database_schema.md`), document table + file storage, admin verification flow. |
+| Vehicle documents | Real file upload + storage (S3). Today only the file name is saved. |
 | Multi-vehicle orders | Link `OrderItem` to a `CustomerVehicle` and snapshot its plate number. |
 | 24h lead time | `Order.RequestedDeliveryAt` + validation (app checks it client-side already). |
 | Plate check at delivery | Per-item "plate verified" flag/time set by the driver app. |
@@ -129,6 +149,15 @@ Flutter (Android + Web), Riverpod, go_router. Details in [instafuel_customer/REA
 | Pricing preview | A quote endpoint (fuel subtotal + delivery fee rules). |
 
 ## Change log
+
+### 2026-11-04 – customer vehicles
+- API: `CustomerVehicle` + `CustomerVehicleDocument` models (check constraints, unique active plate, one document per kind), `MyVehiclesController` (`api/me/vehicles`, scoped to the token's user), admin `CustomerVehiclesController` (`api/customer-vehicles`), `Extensions/ClaimsPrincipalExtensions.GetUserId()`. Dev setting `CustomerVehicles:AutoVerifyWhenComplete`. Migration `AddCustomerVehicles` (applied).
+- Customer app: `ApiVehicleRepository`, rejection reason shown on vehicle card/form, 401 logs the user out. Flag `MOCK_AUTH` renamed to `MOCK_API` (auth + vehicles).
+
+### 2026-11-04 – auth
+- API: `AuthController` (`register`, `login`, `me`), JWT bearer auth + dev CORS in `Program.cs`, `Dtos/AuthRequests.cs`. Package `Microsoft.AspNetCore.Authentication.JwtBearer`.
+- `User`: added `Role` and `AccountType` with check constraints. Migration `AddUserAuthFields` (defaults existing rows to customer / individual). Applied together with `AddCoreEntitiesAndFleet`.
+- Customer app: real register/login through `ApiAuthRepository`, session in secure storage, `MOCK_AUTH` flag for offline use.
 
 ### 2026-11-04 – customer app
 - Added `instafuel_customer/` Flutter app (Android + Web) running on mock data: register/login, dashboard with live delivery tracker, multi-vehicle order flow with the 24h rule, payment methods (incl. corporate credit), order detail with per-vehicle plate check, vehicle registration with document placeholders, corporate affiliations, light/dark theme.

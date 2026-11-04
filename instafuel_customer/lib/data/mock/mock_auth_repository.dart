@@ -1,7 +1,6 @@
-// Mock auth. Replace with ApiAuthRepository once the API has
-// /auth/register and /auth/login endpoints (none exist yet).
+// Offline auth for tests and demos (run with --dart-define=MOCK_API=true).
+// The app normally uses ApiAuthRepository.
 
-import '../../models/corporate.dart';
 import '../../models/user.dart';
 import '../repositories.dart';
 import 'mock_database.dart';
@@ -11,7 +10,7 @@ class MockAuthRepository implements AuthRepository {
   final MockDatabase _db;
 
   @override
-  Future<AppUser> login(String identifier, String password) async {
+  Future<AuthSession> login(String identifier, String password) async {
     await fakeDelay(800);
     final id = identifier.trim().toLowerCase();
     final user = _db.users.where((u) => u.email.toLowerCase() == id || u.phone == id).firstOrNull;
@@ -19,12 +18,11 @@ class MockAuthRepository implements AuthRepository {
     if (user == null || _db.passwords[user.id] != password) {
       throw const AppException('Incorrect email/phone or password.');
     }
-    _db.currentUserId = user.id;
-    return user;
+    return _session(user);
   }
 
   @override
-  Future<AppUser> register(RegisterRequest request) async {
+  Future<AuthSession> register(RegisterRequest request) async {
     await fakeDelay(1000);
     final email = request.email.trim().toLowerCase();
     if (_db.users.any((u) => u.email.toLowerCase() == email)) {
@@ -44,29 +42,21 @@ class MockAuthRepository implements AuthRepository {
     );
     _db.users.add(user);
     _db.passwords[user.id] = request.password;
-    _db.currentUserId = user.id;
-
-    // A corporate sign-up becomes a pending company link until the company approves it.
-    if (request.accountType == AccountType.corporate && request.companyName != null) {
-      _db.myAffiliations.add(CorporateAffiliation(
-        id: _db.newId(),
-        companyName: request.companyName!,
-        role: CorporateRole.manager,
-        status: AffiliationStatus.pending,
-      ));
-    }
-    return user;
+    return _session(user);
   }
 
   @override
-  Future<void> logout() async {
-    _db.currentUserId = null;
-  }
+  Future<void> logout() async {}
 
   @override
-  void restoreSession(AppUser user) {
+  void restoreSession(AuthSession session) {
     // The mock forgets registered users on restart, so add them back (with empty data).
-    if (!_db.users.any((u) => u.id == user.id)) _db.users.add(user);
-    _db.currentUserId = user.id;
+    if (!_db.users.any((u) => u.id == session.user.id)) _db.users.add(session.user);
   }
+
+  AuthSession _session(AppUser user) => AuthSession(
+        token: 'mock-token-${user.id}',
+        expiresAt: DateTime.now().add(const Duration(days: 7)),
+        user: user,
+      );
 }

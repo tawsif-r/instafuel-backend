@@ -1,8 +1,8 @@
 // Contracts between the UI and the data source.
 //
-// Screens/controllers only know these interfaces. Today they are backed by
-// in-memory Mock* classes (data/mock/). When the API endpoints exist, add an
-// Api* class that implements the same interface and switch it in
+// Screens/controllers only know these interfaces. Auth uses the real API
+// (data/api/); the rest are still in-memory Mock* classes (data/mock/). When
+// their API endpoints exist, add an Api* class that implements the same interface and switch it in
 // data/providers.dart. Nothing in features/ needs to change.
 
 import '../models/corporate.dart';
@@ -14,12 +14,12 @@ import '../models/vehicle.dart';
 
 abstract class AuthRepository {
   /// [identifier] is an email or phone number.
-  Future<AppUser> login(String identifier, String password);
-  Future<AppUser> register(RegisterRequest request);
+  Future<AuthSession> login(String identifier, String password);
+  Future<AuthSession> register(RegisterRequest request);
   Future<void> logout();
 
-  /// Called on app start when a saved session exists (later: attach the auth token).
-  void restoreSession(AppUser user);
+  /// Called on app start with the saved session, so later calls send its token.
+  void restoreSession(AuthSession session);
 }
 
 abstract class VehicleRepository {

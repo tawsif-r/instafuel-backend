@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Needed to call Instafuel.Api in release builds. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="instafuel_customer"
         android:name="${applicationName}"

@@ -1,5 +1,5 @@
-// Mock vehicles. Replace with ApiVehicleRepository once the API has
-// customer vehicle + document endpoints.
+// Offline vehicles for tests and demos (MOCK_API=true). The app normally uses
+// ApiVehicleRepository.
 
 import '../../models/vehicle.dart';
 import '../repositories.dart';

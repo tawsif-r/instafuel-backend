@@ -90,7 +90,9 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(saved.isVerified
             ? '${saved.nickname} saved and verified'
-            : '${saved.nickname} saved. Add all documents to get it verified.'),
+            : saved.documentsComplete
+                ? '${saved.nickname} saved. We\'ll verify the documents shortly.'
+                : '${saved.nickname} saved. Add all documents to get it verified.'),
       ));
       context.pop();
     } catch (e) {
@@ -146,6 +148,13 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
                 children: [
                   if (_existing != null) ...[
                     Align(alignment: Alignment.centerLeft, child: StatusChip.verification(_existing!.verificationStatus)),
+                    if (_existing!.rejectionReason != null) ...[
+                      const SizedBox(height: AppTheme.gap8),
+                      Text(
+                        '${_existing!.rejectionReason} Fix the documents and save to send it for review again.',
+                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      ),
+                    ],
                     gap,
                   ],
                   SectionCard(

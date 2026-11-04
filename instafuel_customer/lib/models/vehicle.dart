@@ -55,6 +55,7 @@ class Vehicle {
     required this.registrationNumber,
     required this.fuelType,
     this.verificationStatus = VerificationStatus.pending,
+    this.rejectionReason,
     this.documents = const [],
   });
 
@@ -64,6 +65,7 @@ class Vehicle {
   final String registrationNumber;
   final FuelType fuelType;
   final VerificationStatus verificationStatus;
+  final String? rejectionReason; // set by the reviewer when rejected
   final List<VehicleDocument> documents;
 
   bool get isVerified => verificationStatus == VerificationStatus.verified;
@@ -90,6 +92,7 @@ class Vehicle {
         registrationNumber: registrationNumber ?? this.registrationNumber,
         fuelType: fuelType ?? this.fuelType,
         verificationStatus: verificationStatus ?? this.verificationStatus,
+        rejectionReason: rejectionReason,
         documents: documents ?? this.documents,
       );
 }

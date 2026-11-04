@@ -90,6 +90,13 @@ class _VehicleCard extends StatelessWidget {
                   StatusChip.verification(vehicle.verificationStatus),
                 ],
               ),
+              if (vehicle.rejectionReason != null) ...[
+                const SizedBox(height: AppTheme.gap8),
+                Text(
+                  'Rejected: ${vehicle.rejectionReason}',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                ),
+              ],
               const SizedBox(height: AppTheme.gap12),
               LicensePlate(vehicle.registrationNumber),
               const SizedBox(height: AppTheme.gap12),

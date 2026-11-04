@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/responsive_center.dart';
 import 'auth_controller.dart';
@@ -107,23 +108,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           : const Text('Log in'),
                     ),
                     const SizedBox(height: AppTheme.gap16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         const Text("Don't have an account?"),
                         TextButton(onPressed: () => context.go('/register'), child: const Text('Sign up')),
                       ],
                     ),
-                    const SizedBox(height: AppTheme.gap24),
-                    // Demo helper; remove when real auth is connected.
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.info_outline),
-                        title: const Text('Demo account'),
-                        subtitle: const Text('demo@instafuel.app · password123'),
-                        trailing: TextButton(onPressed: _fillDemo, child: const Text('Use')),
+                    // Demo account only exists in the offline mock (MOCK_API=true).
+                    if (useMockApi) ...[
+                      const SizedBox(height: AppTheme.gap24),
+                      Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.info_outline),
+                          title: const Text('Demo account'),
+                          subtitle: const Text('demo@instafuel.app · password123'),
+                          trailing: TextButton(onPressed: _fillDemo, child: const Text('Use')),
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
