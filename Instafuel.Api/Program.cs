@@ -51,7 +51,11 @@ builder.Logging.AddFilter(
 
 
 builder.Services.AddOpenApi();
-builder.Services.AddControllers();
+// IgnoreCycles: loaded navigation properties point back at each other
+// (e.g. Delivery -> Driver -> Deliveries), so skip the loop instead of throwing.
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.ReferenceHandler =
+        System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

@@ -1,0 +1,59 @@
+// Contracts between the UI and the data source.
+//
+// Screens/controllers only know these interfaces. Today they are backed by
+// in-memory Mock* classes (data/mock/). When the API endpoints exist, add an
+// Api* class that implements the same interface and switch it in
+// data/providers.dart. Nothing in features/ needs to change.
+
+import '../models/corporate.dart';
+import '../models/fuel.dart';
+import '../models/order.dart';
+import '../models/payment.dart';
+import '../models/user.dart';
+import '../models/vehicle.dart';
+
+abstract class AuthRepository {
+  /// [identifier] is an email or phone number.
+  Future<AppUser> login(String identifier, String password);
+  Future<AppUser> register(RegisterRequest request);
+  Future<void> logout();
+
+  /// Called on app start when a saved session exists (later: attach the auth token).
+  void restoreSession(AppUser user);
+}
+
+abstract class VehicleRepository {
+  Future<List<Vehicle>> getVehicles();
+
+  /// Creates the vehicle when its id is empty, otherwise updates it.
+  Future<Vehicle> saveVehicle(Vehicle vehicle);
+  Future<void> deleteVehicle(String id);
+}
+
+abstract class OrderRepository {
+  Future<List<FuelProduct>> getFuelProducts();
+  Future<List<Order>> getOrders();
+  Future<OrderQuote> quote(OrderDraft draft);
+  Future<Order> placeOrder(OrderDraft draft);
+  Future<Order> cancelOrder(String id);
+}
+
+abstract class PaymentRepository {
+  Future<PaymentResult> pay({required String orderId, required PaymentMethod method});
+}
+
+abstract class CorporateRepository {
+  Future<List<CorporateAffiliation>> getAffiliations();
+
+  /// Requests to join a company with the code the company admin shared.
+  Future<CorporateAffiliation> joinCompany(String companyCode);
+}
+
+/// Thrown by repositories with a message that is safe to show to the user.
+class AppException implements Exception {
+  const AppException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}

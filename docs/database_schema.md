@@ -27,8 +27,8 @@ erDiagram
         float longitude
     }
 
-    VEHICLE {
-        int vehicle_id PK
+    CUSTOMER_VEHICLE {
+        int customer_vehicle_id PK
         int user_id FK
         string vehicle_type
         string registration_number
@@ -93,23 +93,40 @@ erDiagram
         datetime paid_at
     }
 
-    RIDER {
-        int rider_id PK
+    DRIVER {
+        int driver_id PK
         int user_id FK
-        string license_number
-        string vehicle_number
+        string license_number UK
+        date license_expiry
+        boolean dangerous_goods_certified
         string verification_status
+        string employment_status
+        boolean is_available
+    }
+
+    VEHICLE {
+        int vehicle_id PK
+        string registration_number UK
+        string vehicle_type
+        float capacity_litres
+        int compartment_count
+        date fitness_certificate_expiry
+        date last_inspection_date
+        string vehicle_status
         boolean is_available
     }
 
     DELIVERY {
         int delivery_id PK
         int order_id FK
-        int rider_id FK
+        int driver_id FK
+        int vehicle_id FK
         datetime assigned_at
-        datetime pickup_time
+        datetime dispatched_at
         datetime delivered_at
+        float delivered_quantity
         string delivery_status
+        string failure_reason
     }
 
     REVIEW {
@@ -122,9 +139,9 @@ erDiagram
     }
 
     USER ||--o{ ADDRESS : has
-    USER ||--o{ VEHICLE : owns
+    USER ||--o{ CUSTOMER_VEHICLE : owns
     USER ||--o| SUPPLIER : operates
-    USER ||--o| RIDER : works_as
+    USER ||--o| DRIVER : works_as
 
     USER ||--o{ ORDERS : places
     ADDRESS ||--o{ ORDERS : receives
@@ -138,7 +155,8 @@ erDiagram
 
     ORDERS ||--o{ PAYMENT : has
     ORDERS ||--o{ DELIVERY : requires
-    RIDER ||--o{ DELIVERY : handles
+    DRIVER ||--o{ DELIVERY : drives
+    VEHICLE ||--o{ DELIVERY : carries
 
     USER ||--o{ REVIEW : writes
     ORDERS ||--o| REVIEW : receives
@@ -148,7 +166,7 @@ erDiagram
 
 **1. USER — The central entity**
 
-The `USER` table stores common account information. A user can have a customer, rider, or supplier role. Sector Supervisors, Admins, and Super Admins can also have accounts.
+The `USER` table stores common account information. A user can have a customer, driver, or supplier role. Sector Supervisors, Admins, and Super Admins can also have accounts.
 
 **2. FUEL_TYPE and INVENTORY — Fuel management**
 
@@ -169,10 +187,15 @@ For example, one order might contain 10 litres of Petrol and 5 litres of Diesel.
 
 The `PAYMENT` table stores payment details for online payments and Cash on Delivery (COD). The payment status can be `PENDING`, `PAID`, `FAILED`, or `REFUNDED`.
 
-**5. RIDER and DELIVERY — Delivery management**
+**5. DRIVER, VEHICLE and DELIVERY — Fleet & delivery management**
 
-- `RIDER` stores rider-specific information and verification status.
-- `DELIVERY` connects an order with the rider responsible for delivering it.
+- `DRIVER` stores driver-specific information for a `USER` with the driver role: licence, licence expiry, dangerous-goods certification, verification and employment status, and availability.
+- `VEHICLE` stores the company's own delivery fleet (fuel trucks / tankers / bowsers). It is not owned by a user; it carries registration, capacity, compartment count, fitness/inspection dates, and operational status (e.g. `ACTIVE`, `UNDER_MAINTENANCE`, `RETIRED`).
+- `DELIVERY` connects an order with the driver **and** the vehicle assigned to it, and records the actual `delivered_quantity`. Status follows the plan: `PENDING`, `ASSIGNED`, `DISPATCHED`, `IN_TRANSIT`, `DELIVERED`, `FAILED`, `CANCELLED`. `failure_reason` is filled when a delivery fails.
+
+Drivers and vehicles are separate entities because they are assigned independently — any authorized driver can drive any available vehicle, and the pairing is captured per delivery.
+
+`CUSTOMER_VEHICLE` (formerly `VEHICLE`) is the customer's own car/vehicle used for fuel preference. It is unrelated to the delivery fleet and was renamed to avoid confusion.
 
 Separating `DELIVERY` from `ORDERS` makes it possible to track delivery progress independently of the order's overall status.
 
@@ -186,7 +209,10 @@ For Fuel On-Demand, I recommend considering these improvements when developing t
 |---|---|
 | Multiple user roles | Use a role/permission system instead of relying only on a role string. |
 | Sector Supervisors | Add `SECTOR` and `SECTOR_SUPERVISOR` relationships. |
-| Rider preferred areas | Create `RIDER_PREFERRED_AREA` and `DELIVERY_AREA` tables. |
+| Driver preferred areas | Create `DRIVER_PREFERRED_AREA` and `DELIVERY_AREA` tables. |
+| Delivery route planning | Create `DELIVERY_ROUTE` / `ROUTE_STOP` tables to group deliveries per vehicle trip. |
+| Vehicle maintenance | Create a `VEHICLE_MAINTENANCE_LOG` table for servicing and downtime history. |
+| Delivery status history | Create a `DELIVERY_STATUS_HISTORY` table. |
 | Supplier inventory | Add inventory transaction records to track stock changes. |
 | Refunds | Create a separate `REFUND` table. |
 | Order status history | Create an `ORDER_STATUS_HISTORY` table. |
