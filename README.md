@@ -206,6 +206,11 @@ flutter test                         # runs offline, no API needed
 
 ---
 
+### 10. Default branch
+`checkpoint` branch is the new default branch. use `git checkout -b <feature>` or `switch` from this branch to start working on this project. 
+
+**refrain** from `save-point-0` branch push.
+
 ## License
 
 See [LICENSE](LICENSE).

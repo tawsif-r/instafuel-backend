@@ -58,3 +58,6 @@ nunit-*.xml
 
 # Flutter Android debug source set (not a .NET build output)
 !instafuel_customer/android/app/src/debug/
+
+# accidentally someone installed the flutter folder in there repo, so this is a workaround
+flutter
