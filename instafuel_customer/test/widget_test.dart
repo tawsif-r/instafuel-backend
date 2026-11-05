@@ -6,10 +6,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:instafuel_customer/app.dart';
 import 'package:instafuel_customer/data/mock/mock_auth_repository.dart';
+import 'package:instafuel_customer/data/mock/mock_order_repository.dart';
+import 'package:instafuel_customer/data/mock/mock_payment_repository.dart';
 import 'package:instafuel_customer/data/mock/mock_vehicle_repository.dart';
 import 'package:instafuel_customer/data/providers.dart';
 
-// Widget tests run offline: auth and vehicles use the mock repositories instead of the API.
+// Widget tests run offline: auth, vehicles, orders and payments use the mock repositories instead of the API.
 Future<void> _pumpApp(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues({});
   FlutterSecureStorage.setMockInitialValues({});
@@ -19,6 +21,8 @@ Future<void> _pumpApp(WidgetTester tester) async {
       sharedPreferencesProvider.overrideWithValue(prefs),
       authRepositoryProvider.overrideWith((ref) => MockAuthRepository(ref.watch(mockDatabaseProvider))),
       vehicleRepositoryProvider.overrideWith((ref) => MockVehicleRepository(ref.watch(mockDatabaseProvider))),
+      orderRepositoryProvider.overrideWith((ref) => MockOrderRepository(ref.watch(mockDatabaseProvider))),
+      paymentRepositoryProvider.overrideWith((ref) => MockPaymentRepository(ref.watch(mockDatabaseProvider))),
     ],
     child: const InstafuelApp(),
   ));

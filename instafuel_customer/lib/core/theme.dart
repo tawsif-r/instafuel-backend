@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 class AppTheme {
   AppTheme._();
 
-  static const seed = Color(0xFFEF6C00); // fuel orange
+  static const seed = Color(0xFFCAF0C1); // pistachio
 
   // 8-pt spacing scale used across screens.
   static const gap4 = 4.0;

@@ -31,7 +31,7 @@ Instafuel.Api/
 | Constraints | Unique indexes, max lengths, check constraints and delete rules go in `PgDbContext.OnModelCreating`, one block per entity. |
 | Delete rules | `Restrict` for business records (orders, payments, deliveries, drivers, vehicles). `Cascade` only for child rows that mean nothing alone (order items, status history, inventory movements, supplier members). |
 | Deleting | Soft delete (`IsActive = false` or a status) for anything other records point at. No hard deletes from the API. |
-| Requests vs responses | Clients send `Dtos/*Request` records. Responses return the entity directly. `User.PasswordHash` is `[JsonIgnore]`. JSON uses `ReferenceHandler.IgnoreCycles`. |
+| Requests vs responses | Clients send `Dtos/*Request` records. Responses return the entity directly, except customer orders (`Dtos/MyOrderResponses.cs`: a flat view that hides supplier/driver internals). `User.PasswordHash` is `[JsonIgnore]`. JSON uses `ReferenceHandler.IgnoreCycles`. |
 | Auth | JWT bearer tokens from `AuthController`. Passwords hashed with ASP.NET Core Identity's `PasswordHasher<User>` (PBKDF2, salted). Protect an endpoint with `[Authorize]` (or `[Authorize(Roles = "admin")]`). |
 | Errors | Each action has a try/catch that logs with `ILogger` and returns 500 with a short message (same pattern as `TestsController`). Validation → 400, missing → 404, duplicates/busy resources → 409. |
 
@@ -46,7 +46,7 @@ Logical design is in [database_schema.md](database_schema.md); this is what the 
 | Suppliers | `Supplier`, `SupplierMember` (user ↔ supplier, composite key), `SupplierLocation` |
 | Products & pricing | `Category` (self-referencing tree), `Product`, `SupplierOffer` (supplier's price for a product) |
 | Inventory | `InventoryBalance` (one row per location + offer), `InventoryMovement` (audit trail) |
-| Orders | `Order` → `SupplierOrder` (one per supplier) → `OrderItem` (price/name snapshot) |
+| Orders | `Order` (`RequestedDeliveryAt`) → `SupplierOrder` (one per supplier) → `OrderItem` (price/name snapshot; optional `CustomerVehicleId` + vehicle name/plate/fuel snapshot, `PlateVerifiedAt`) |
 | Payments | `Payment` (unique `IdempotencyKey`), `Refund` |
 | Fleet & delivery | `Driver` (1-to-0..1 with `User`), `Vehicle` (company truck), `Delivery` (supplier order + driver + vehicle), `DeliveryStatusHistory` |
 
@@ -58,6 +58,7 @@ All under `/api`. Swagger UI at `/swagger` in Development.
 |---|---|
 | `auth` | `POST register` (customer sign-up), `POST login` (email or phone), `GET me` (needs token). Register/login return `{ token, expiresAt, user }`. |
 | `me/vehicles` | Logged-in customer's vehicles (token required): `GET`, `GET {id}`, `POST`, `PUT {id}`, `DELETE {id}` (soft delete) |
+| `me/orders` | Logged-in customer's orders (token required): `GET fuel-products`, `POST quote`, `GET`, `GET {id}`, `POST`, `POST {id}/cancel`, `POST {id}/payments` |
 | `customer-vehicles` | Admin only: `GET ?status=pending` (review queue), `PATCH {id}/verification` (verified / rejected + reason) |
 | `users` | `GET`, `GET {id}`, `POST`, `PUT {id}`, `DELETE {id}` (deactivate) |
 | `categories` | `GET`, `GET {id}`, `POST`, `PUT {id}`, `DELETE {id}` (deactivate) |
@@ -95,6 +96,16 @@ No endpoints yet for supplier locations/offers/members, inventory, or refunds.
 4. Name, unit and price are copied from the offer into `OrderItem`, and totals are calculated on the server.
 5. Saved with one `SaveChanges`, which runs as a single transaction.
 
+### Customer orders (`/api/me/orders`)
+1. An order is a list of lines, one per customer vehicle: `{ customerVehicleId, fuelType, quantity }`. Vehicles must be the caller's, active and verified, each at most once.
+2. Pricing: each fuel type uses the cheapest active `SupplierOffer` whose product has that `FuelGrade` (active product + supplier, supplier has an active location) — `Extensions/FuelOfferQueries.cs`. `GET fuel-products` and `POST quote` use the same rule.
+3. `RequestedDeliveryAt` must be at least `Orders:MinLeadTimeHours` (24) ahead. `DeliveryFee` comes from `Orders:DeliveryFee` (150, flat). City is `Orders:DefaultCity` until the app sends one. Recipient name/phone come from the user.
+4. Lines are grouped into one `SupplierOrder` per supplier, like the admin flow; the vehicle name/plate/fuel are copied into `OrderItem`.
+5. Cancel: only while the order is `pending`/`confirmed` and no delivery is past `pending`. Cancels supplier orders, pending deliveries and pending payments.
+6. Pay (`POST {id}/payments`, idempotency key from the app): one open payment per order. `cash`/`bank_transfer` → `pending`; `card`/`mobile_banking` → `successful` when `Payments:SimulateGateway` is on (Development), otherwise `pending`; `corporate_credit` → 400 for now. A pending order becomes `confirmed`.
+7. Responses are `MyOrderResponse`: one `deliveryStatus` (latest delivery), `paymentStatus` (`unpaid`/`pending`/`paid`/`failed` from the latest payment), driver name, truck plate and a timeline built from the order, payments and delivery history.
+8. Dev data: `Seed:DevFuelCatalog` (Development only) creates a "Fuel" category, Octane/Petrol/Diesel products and an "Instafuel Depot" supplier with offers 135/130/114 BDT on startup if no fuel product exists (`Models/DevSeeder.cs`).
+
 ### Delivery status flow
 
 ```
@@ -114,9 +125,10 @@ pending ──assign──► assigned ──► dispatched ──► in_transit
 
 - Role-based access (plan.md §2.9): auth exists, but only `GET /api/auth/me` requires a token. All other endpoints are still open; add `[Authorize]` per controller as the apps start sending tokens.
 - No refresh tokens, logout revocation, password reset or email/phone verification yet.
-- 24h order lead time: `Order` has no requested delivery time field yet.
+- 24h lead time is only enforced on `api/me/orders`; the admin `POST api/orders` still doesn't take a delivery time.
+- No payment gateway (card/mobile banking are simulated in Development) and no refunds when a paid order is cancelled.
 - Stock checks/reservation on order, inventory movements on delivery.
-- Delivery fee, discount and tax rules (currently 0).
+- Delivery fee is a flat config value; discount and tax rules are 0.
 - Delivery status doesn't update `SupplierOrder`/`Order` status yet.
 - Route planning, notifications, reporting.
 
@@ -133,7 +145,7 @@ dotnet ef database update
 
 Flutter (Android + Web), Riverpod, go_router. Details in [instafuel_customer/README.md](../instafuel_customer/README.md).
 
-- UI talks only to repository interfaces (`lib/data/repositories.dart`). Auth and vehicles use the real API (`ApiAuthRepository`, `ApiVehicleRepository`; token in `flutter_secure_storage`); orders, payments and corporate are in-memory mocks for now. `lib/data/providers.dart` is the single place to switch to API implementations.
+- UI talks only to repository interfaces (`lib/data/repositories.dart`). Auth and vehicles use the real API (`ApiAuthRepository`, `ApiVehicleRepository`; token in `flutter_secure_storage`); orders and payments use `ApiOrderRepository` / `ApiPaymentRepository`; corporate is still an in-memory mock. `lib/data/providers.dart` is the single place to switch to API implementations.
 - Model/status names match the API (`OrderStatus`, `DeliveryStatus`, payment methods).
 - **Orders are a list of lines, one per vehicle** (`vehicle + fuel + litres`). One order can fuel several vehicles, and the driver checks each vehicle's number plate separately.
 
@@ -142,13 +154,17 @@ Flutter (Android + Web), Riverpod, go_router. Details in [instafuel_customer/REA
 | App feature | Needed in the API |
 |---|---|
 | Vehicle documents | Real file upload + storage (S3). Today only the file name is saved. |
-| Multi-vehicle orders | Link `OrderItem` to a `CustomerVehicle` and snapshot its plate number. |
-| 24h lead time | `Order.RequestedDeliveryAt` + validation (app checks it client-side already). |
-| Plate check at delivery | Per-item "plate verified" flag/time set by the driver app. |
+| Plate check at delivery | `OrderItem.PlateVerifiedAt` exists; needs a driver-app endpoint to set it. |
 | Corporate accounts | Company, membership (pending/active, role), credit limit and usage. `corporate_credit` payment method. |
-| Pricing preview | A quote endpoint (fuel subtotal + delivery fee rules). |
+| Delivery fee rules | Fee by distance/zone (flat config value today). |
+| Card / mobile banking | Real payment gateway redirect. |
 
 ## Change log
+
+### 2026-11-05 – customer orders
+- API: `MyOrdersController` (`api/me/orders`: fuel prices, quote, list/get, place, cancel, pay), `Dtos/MyOrderRequests.cs`, `Dtos/MyOrderResponses.cs`, `Extensions/FuelOfferQueries.cs`, `Models/DevSeeder.cs`. Config `Orders:*`, `Payments:SimulateGateway`, `Seed:DevFuelCatalog`.
+- `Order.RequestedDeliveryAt`; `OrderItem.CustomerVehicleId` (FK, restrict), `VehicleName`, `VehicleRegistration`, `FuelType`, `PlateVerifiedAt`. Migration `AddCustomerOrderFields` (existing orders get `RequestedDeliveryAt = CreatedAt`; applied).
+- Customer app: `ApiOrderRepository`, `ApiPaymentRepository`; `MOCK_API` now covers orders and payments too.
 
 ### 2026-11-04 – customer vehicles
 - API: `CustomerVehicle` + `CustomerVehicleDocument` models (check constraints, unique active plate, one document per kind), `MyVehiclesController` (`api/me/vehicles`, scoped to the token's user), admin `CustomerVehiclesController` (`api/customer-vehicles`), `Extensions/ClaimsPrincipalExtensions.GetUserId()`. Dev setting `CustomerVehicles:AutoVerifyWhenComplete`. Migration `AddCustomerVehicles` (applied).

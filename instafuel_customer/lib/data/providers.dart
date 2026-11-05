@@ -1,7 +1,7 @@
 // The ONE place that decides which implementation each repository uses.
-// Auth and vehicles talk to Instafuel.Api; the others are still mocks. To go live with
-// another feature, replace e.g. `MockOrderRepository(db)` with
-// `ApiOrderRepository(ref.watch(apiClientProvider))` here.
+// Auth, vehicles, orders and payments talk to Instafuel.Api (or mocks with MOCK_API=true);
+// corporate is still a mock. To go live with it, replace `MockCorporateRepository(db)`
+// with an Api* class here.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +10,8 @@ import '../core/config.dart';
 import '../models/user.dart';
 import 'api/api_auth_repository.dart';
 import 'api/api_client.dart';
+import 'api/api_order_repository.dart';
+import 'api/api_payment_repository.dart';
 import 'api/api_vehicle_repository.dart';
 import 'mock/mock_auth_repository.dart';
 import 'mock/mock_corporate_repository.dart';
@@ -45,11 +47,13 @@ final vehicleRepositoryProvider = Provider<VehicleRepository>((ref) => useMockAp
     ? MockVehicleRepository(ref.watch(mockDatabaseProvider))
     : ApiVehicleRepository(ref.watch(apiClientProvider)));
 
-final orderRepositoryProvider =
-    Provider<OrderRepository>((ref) => MockOrderRepository(ref.watch(mockDatabaseProvider)));
+final orderRepositoryProvider = Provider<OrderRepository>((ref) => useMockApi
+    ? MockOrderRepository(ref.watch(mockDatabaseProvider))
+    : ApiOrderRepository(ref.watch(apiClientProvider)));
 
-final paymentRepositoryProvider =
-    Provider<PaymentRepository>((ref) => MockPaymentRepository(ref.watch(mockDatabaseProvider)));
+final paymentRepositoryProvider = Provider<PaymentRepository>((ref) => useMockApi
+    ? MockPaymentRepository(ref.watch(mockDatabaseProvider))
+    : ApiPaymentRepository(ref.watch(apiClientProvider)));
 
 final corporateRepositoryProvider =
     Provider<CorporateRepository>((ref) => MockCorporateRepository(ref.watch(mockDatabaseProvider)));

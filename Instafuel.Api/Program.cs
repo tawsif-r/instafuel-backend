@@ -99,6 +99,13 @@ builder.Services.AddCors(o => o.AddPolicy("DevCors", p =>
 
 var app = builder.Build();
 
+// Dev only: fuel products + a supplier so orders can be placed (see Models/DevSeeder.cs).
+if (app.Configuration.GetValue("Seed:DevFuelCatalog", false))
+{
+    using var scope = app.Services.CreateScope();
+    await DevSeeder.SeedFuelCatalogAsync(scope.ServiceProvider.GetRequiredService<PgDbContext>());
+}
+
 app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())

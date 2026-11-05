@@ -6,8 +6,8 @@ import 'package:flutter/foundation.dart';
 
 const _apiBaseUrlOverride = String.fromEnvironment('API_BASE_URL');
 
-/// Use the in-memory mock repositories instead of the API for auth and vehicles
-/// (switched together because mock users only match mock vehicles).
+/// Use the in-memory mock repositories instead of the API for auth, vehicles,
+/// orders and payments (switched together because mock data only matches mock users).
 const useMockApi = bool.fromEnvironment('MOCK_API');
 
 /// Where Instafuel.Api runs. Defaults match `dotnet run` (http profile, port 5033).

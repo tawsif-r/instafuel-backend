@@ -1,5 +1,4 @@
-// Mock orders. Maps to the existing API OrdersController later; the API will
-// also need "order line per vehicle" support (see docs/architecture.md).
+// Mock orders for offline use (MOCK_API=true). The real one is ApiOrderRepository.
 
 import '../../models/fuel.dart';
 import '../../models/order.dart';

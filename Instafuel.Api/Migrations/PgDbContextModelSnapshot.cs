@@ -423,6 +423,9 @@ namespace Instafuel.Api.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<DateTime>("RequestedDeliveryAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -461,9 +464,19 @@ namespace Instafuel.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("CustomerVehicleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FuelType")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<decimal>("LineTotal")
                         .HasPrecision(14, 2)
                         .HasColumnType("numeric(14,2)");
+
+                    b.Property<DateTime?>("PlateVerifiedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ProductName")
                         .IsRequired()
@@ -494,7 +507,17 @@ namespace Instafuel.Api.Migrations
                         .HasPrecision(14, 2)
                         .HasColumnType("numeric(14,2)");
 
+                    b.Property<string>("VehicleName")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("VehicleRegistration")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("CustomerVehicleId");
 
                     b.HasIndex("SupplierOfferId");
 
@@ -1083,6 +1106,11 @@ namespace Instafuel.Api.Migrations
 
             modelBuilder.Entity("Instafuel.Api.Models.OrderItem", b =>
                 {
+                    b.HasOne("Instafuel.Api.Models.CustomerVehicle", "CustomerVehicle")
+                        .WithMany()
+                        .HasForeignKey("CustomerVehicleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Instafuel.Api.Models.SupplierOffer", "SupplierOffer")
                         .WithMany("OrderItems")
                         .HasForeignKey("SupplierOfferId")
@@ -1094,6 +1122,8 @@ namespace Instafuel.Api.Migrations
                         .HasForeignKey("SupplierOrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("CustomerVehicle");
 
                     b.Navigation("SupplierOffer");
 

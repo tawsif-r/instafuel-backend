@@ -219,11 +219,16 @@ public class PgDbContext : DbContext
             e.Property(i => i.ProductName).HasMaxLength(150).IsRequired();
             e.Property(i => i.SellerName).HasMaxLength(200).IsRequired();
             e.Property(i => i.UnitCode).HasMaxLength(10);
+            e.Property(i => i.VehicleName).HasMaxLength(60);
+            e.Property(i => i.VehicleRegistration).HasMaxLength(30);
+            e.Property(i => i.FuelType).HasMaxLength(20);
             e.ToTable(t => t.HasCheckConstraint("CK_OrderItem_Quantity", "\"Quantity\" > 0"));
             e.HasOne(i => i.SupplierOrder).WithMany(s => s.Items)
                 .HasForeignKey(i => i.SupplierOrderId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(i => i.SupplierOffer).WithMany(o => o.OrderItems)
                 .HasForeignKey(i => i.SupplierOfferId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(i => i.CustomerVehicle).WithMany()
+                .HasForeignKey(i => i.CustomerVehicleId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // ---------- Payments ----------
