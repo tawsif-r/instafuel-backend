@@ -34,6 +34,10 @@ public class Order
     public decimal? DeliveryLongitude { get; set; }
 
     public string? CustomerNotes { get; set; }
+
+    // When the customer wants the fuel. Must be at least Orders:MinLeadTimeHours ahead.
+    public DateTime RequestedDeliveryAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

@@ -1,4 +1,7 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Instafuel.Api.Models;
 using Serilog;
 
@@ -51,7 +54,11 @@ builder.Logging.AddFilter(
 
 
 builder.Services.AddOpenApi();
-builder.Services.AddControllers();
+// IgnoreCycles: loaded navigation properties point back at each other
+// (e.g. Delivery -> Driver -> Deliveries), so skip the loop instead of throwing.
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.ReferenceHandler =
+        System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -61,7 +68,43 @@ builder.Services.AddDbContext<PgDbContext>(options =>
     )
 );
 
+// =======================
+// AUTH config (JWT bearer)
+// =======================
+// Tokens are issued by AuthController. Jwt:Key lives in appsettings.Development.json
+// for local work; in production set it through the Jwt__Key environment variable.
+var jwtKey = builder.Configuration["Jwt:Key"]
+    ?? throw new InvalidOperationException("Jwt:Key is not configured.");
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        // Keep claim names as they are in the token ("sub", "role") instead of long .NET URIs.
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            NameClaimType = "name",
+            RoleClaimType = "role"
+        };
+    });
+builder.Services.AddAuthorization();
+
+// Dev only: the Flutter web app runs on a random localhost port, so allow any origin.
+// Safe here because auth uses bearer tokens, not cookies.
+builder.Services.AddCors(o => o.AddPolicy("DevCors", p =>
+    p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+
 var app = builder.Build();
+
+// Dev only: fuel products + a supplier so orders can be placed (see Models/DevSeeder.cs).
+if (app.Configuration.GetValue("Seed:DevFuelCatalog", false))
+{
+    using var scope = app.Services.CreateScope();
+    await DevSeeder.SeedFuelCatalogAsync(scope.ServiceProvider.GetRequiredService<PgDbContext>());
+}
 
 app.UseSerilogRequestLogging();
 
@@ -70,9 +113,12 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseCors("DevCors");
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
