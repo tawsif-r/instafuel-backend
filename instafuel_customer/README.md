@@ -2,8 +2,8 @@
 
 Flutter app for customers: register / log in, register vehicles, order fuel for one or more vehicles, pay, and track deliveries.
 
-> **Register / log in and vehicles use the real API** (`Instafuel.Api`, JWT). Orders, payments and corporate
-> are still mock data kept in memory: they reset on restart and start empty for new accounts.
+> **Auth, vehicles, orders and payments use the real API** (`Instafuel.Api`, JWT). Corporate accounts
+> are still mock data kept in memory. Full setup steps are in the [root README](../README.md).
 
 ## Run
 
@@ -27,7 +27,7 @@ flutter analyze
 | `--dart-define` | Use |
 |---|---|
 | `API_BASE_URL=http://192.168.0.10:5033` | Other API address, e.g. a physical phone on Wi-Fi. Start the API with `dotnet run --urls http://0.0.0.0:5033` so the phone can reach it. |
-| `MOCK_API=true` | Offline: in-memory auth + vehicles with the demo account `demo@instafuel.app` / `password123` (shown on the login screen) and sample orders. |
+| `MOCK_API=true` | Offline: in-memory auth, vehicles, orders and payments with the demo account `demo@instafuel.app` / `password123` (shown on the login screen) and sample orders. |
 
 Android debug builds allow plain `http` (`android/app/src/debug/AndroidManifest.xml`); release builds need an `https` API.
 
@@ -43,7 +43,7 @@ lib/
 │   ├── repositories.dart   interfaces the UI talks to
 │   ├── providers.dart      picks the implementation for each repository  <-- swap point
 │   ├── session_store.dart  saved login (JWT + user) in flutter_secure_storage
-│   ├── api/                ApiClient (http + bearer token + error messages), ApiAuthRepository, ApiVehicleRepository
+│   ├── api/                ApiClient (http + bearer token + error messages), ApiAuth/Vehicle/Order/PaymentRepository
 │   └── mock/               in-memory implementations + seed data
 └── features/            one folder per area: auth, dashboard, orders, payment,
                          vehicles, corporate, settings (screens + Riverpod controllers)
@@ -64,10 +64,12 @@ lib/
 
 ## Connecting more of the API
 
-1. Write `ApiOrderRepository implements OrderRepository` (same for the others) in `lib/data/api/`, using `ApiClient`.
+Only corporate is left. When its endpoints exist:
+
+1. Write `ApiCorporateRepository implements CorporateRepository` in `lib/data/api/`, using `ApiClient` (see `ApiOrderRepository` for the pattern).
 2. Change the provider in `lib/data/providers.dart`:
    ```dart
-   final orderRepositoryProvider = Provider<OrderRepository>((ref) => ApiOrderRepository(ref.watch(apiClientProvider)));
+   final corporateRepositoryProvider = Provider<CorporateRepository>((ref) => ApiCorporateRepository(ref.watch(apiClientProvider)));
    ```
 Screens and controllers don't change.
 
@@ -75,7 +77,7 @@ Screens and controllers don't change.
 
 - Vehicle documents (registration PDF, fitness PDF, number plate photo): "Attach" only fills a fake file name, which the API stores. Add `file_picker` / `image_picker` + upload when storage is ready.
 - Vehicle verification: on the dev API, a vehicle with all 3 documents is verified straight away (`CustomerVehicles:AutoVerifyWhenComplete`). Otherwise it stays pending until an admin reviews it.
-- Card / mobile banking: will redirect to a payment gateway. The mock returns success.
+- Card / mobile banking: will redirect to a payment gateway. The dev API (`Payments:SimulateGateway`) and the mock mark them paid straight away. Corporate credit is rejected by the API until company accounts exist.
 - Notifications, call driver, edit profile, saved addresses, password reset: show "coming soon".
 - Corporate sign-up: the API stores the account type only; the company link shows as a pending mock affiliation.
 - Demo shortcuts: company codes starting with `DEMO` are approved instantly (mock vehicles with all 3 documents are also verified instantly in `MOCK_API` mode).
