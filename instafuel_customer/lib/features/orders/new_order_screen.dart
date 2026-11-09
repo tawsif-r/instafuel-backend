@@ -1,5 +1,8 @@
-// 4-step order flow: vehicles -> fuel & quantity -> delivery -> review.
-// One order can cover several vehicles; each becomes its own order line.
+// 4-step order flow adhering to SOP-OPS-001:
+// 1. Vehicle/Equipment Selection
+// 2. Fuel Type & Quantity (with minimum order validation & quick litre chips)
+// 3. Delivery Address, 2-Hour Slot (enforcing 24h lead time) & Site Parking Notes
+// 4. Invoicing Review (Fuel Charge + Distance Delivery Fee = Total Invoice)
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,7 +25,6 @@ import '../corporate/corporate_controller.dart';
 import '../vehicles/vehicles_controller.dart';
 import 'orders_controller.dart';
 
-// Per-vehicle choices on step 2.
 class _LineInput {
   _LineInput(this.fuelType) : litres = TextEditingController(text: '20');
 
@@ -41,21 +43,24 @@ class NewOrderScreen extends ConsumerStatefulWidget {
 
 class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
   static const _maxLitres = 5000.0;
+  static const _minOrderLitres = 20.0; // SOP §5.4 Minimum order volume
 
   int _step = 0;
-  final _lines = <String, _LineInput>{}; // vehicleId -> input, in selection order
+  final _lines = <String, _LineInput>{}; // vehicleId -> input
   final _address = TextEditingController();
   final _notes = TextEditingController();
+  final _siteContact = TextEditingController();
   late DateTime _scheduledAt = _defaultTime();
-  String? _corporateId; // null = I pay myself
+  String _selectedSlotWindow = '10:00 - 12:00';
+  String? _corporateId;
   Future<OrderQuote>? _quote;
   bool _placing = false;
   String? _stepError;
 
-  // Next full hour after the 24h minimum.
+  // Next available day complying with SOP §5.2 (at least 24h ahead)
   static DateTime _defaultTime() {
-    final t = DateTime.now().add(orderLeadTime + const Duration(hours: 1));
-    return DateTime(t.year, t.month, t.day, t.hour);
+    final t = DateTime.now().add(orderLeadTime + const Duration(hours: 2));
+    return DateTime(t.year, t.month, t.day, 10, 0);
   }
 
   bool get _timeValid => !_scheduledAt.isBefore(DateTime.now().add(orderLeadTime));
@@ -67,6 +72,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
     }
     _address.dispose();
     _notes.dispose();
+    _siteContact.dispose();
     super.dispose();
   }
 
@@ -77,21 +83,36 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
         ],
         address: _address.text.trim(),
         scheduledAt: _scheduledAt,
-        notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+        notes: _buildNotes(),
         corporateId: _corporateId,
       );
 
-  // Returns an error message for the current step, or null if it's complete.
+  String? _buildNotes() {
+    final parts = <String>[];
+    if (_siteContact.text.trim().isNotEmpty) {
+      parts.add('Contact: ${_siteContact.text.trim()}');
+    }
+    if (_notes.text.trim().isNotEmpty) {
+      parts.add(_notes.text.trim());
+    }
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
   String? _validateStep() {
     switch (_step) {
       case 0:
-        return _lines.isEmpty ? 'Select at least one vehicle.' : null;
+        return _lines.isEmpty ? 'Select at least one vehicle or generator to refuel.' : null;
       case 1:
         final bad = _lines.values.any((l) => (l.litresValue ?? 0) <= 0 || l.litresValue! > _maxLitres);
-        return bad ? 'Enter a quantity between 1 and ${_maxLitres.toInt()} litres for each vehicle.' : null;
+        if (bad) return 'Enter a valid quantity between 1 and ${_maxLitres.toInt()} litres.';
+        final total = _lines.values.fold<double>(0, (sum, l) => sum + (l.litresValue ?? 0));
+        if (total < _minOrderLitres) {
+          return 'Minimum order requirement is ${_minOrderLitres.toInt()} litres (SOP §5.4). Current: ${total.toInt()}L.';
+        }
+        return null;
       case 2:
-        if (_address.text.trim().isEmpty) return 'Enter a delivery address.';
-        if (!_timeValid) return 'Delivery must be at least 24 hours from now.';
+        if (_address.text.trim().isEmpty) return 'Enter the exact delivery location / address.';
+        if (!_timeValid) return 'Order lead-time requirement: Delivery must be at least 24 hours ahead (SOP §5.2).';
         return null;
     }
     return null;
@@ -110,7 +131,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
         if (_step > 0) _step--;
       });
 
-  Future<void> _pickTime() async {
+  Future<void> _pickDate() async {
     final min = DateTime.now().add(orderLeadTime);
     final date = await showDatePicker(
       context: context,
@@ -119,10 +140,16 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
       lastDate: DateTime.now().add(const Duration(days: 30)),
     );
     if (date == null || !mounted) return;
-    final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_scheduledAt));
-    if (time == null) return;
     setState(() {
-      _scheduledAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _scheduledAt = DateTime(date.year, date.month, date.day, _scheduledAt.hour, _scheduledAt.minute);
+      _stepError = null;
+    });
+  }
+
+  void _selectSlot(String slot, int hour) {
+    setState(() {
+      _selectedSlotWindow = slot;
+      _scheduledAt = DateTime(_scheduledAt.year, _scheduledAt.month, _scheduledAt.day, hour, 0);
       _stepError = null;
     });
   }
@@ -145,52 +172,77 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
     final vehicles = ref.watch(vehiclesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('New order')),
+      appBar: AppBar(
+        title: const Text('Schedule Fuel Delivery'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(42),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            color: const Color(0xFF059669).withValues(alpha: 0.1),
+            child: const Row(
+              children: [
+                Icon(Icons.shield_outlined, size: 16, color: Color(0xFF059669)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'SOP-OPS-001 Compliant · 24h Advance Lead Time Required',
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
       body: AsyncValueView(
         value: vehicles,
-        onRetry: () => ref.invalidate(vehiclesProvider),
         data: (list) {
           if (list.isEmpty) {
             return EmptyState(
               icon: Icons.directions_car_outlined,
-              title: 'Add a vehicle first',
-              message: 'Fuel is only delivered to registered and verified vehicles.',
+              title: 'No vehicles or equipment found',
+              message: 'Before placing an order, add your private vehicle, commercial fleet, or backup generator.',
               action: FilledButton.icon(
                 onPressed: () => context.push('/vehicle/new'),
                 icon: const Icon(Icons.add),
-                label: const Text('Add vehicle'),
+                label: const Text('Add Vehicle / Generator'),
               ),
             );
           }
+
           return ResponsiveCenter(
+            maxWidth: 680,
             child: Stepper(
               currentStep: _step,
-              onStepTapped: (i) => i < _step ? setState(() => _step = i) : null, // only go back by tapping
-              controlsBuilder: (context, details) => _controls(),
+              elevation: 0,
+              type: StepperType.horizontal,
+              onStepTapped: (s) {
+                if (s < _step) setState(() => _step = s);
+              },
+              controlsBuilder: (_, _) => _controls(),
               steps: [
                 Step(
                   title: const Text('Vehicles'),
-                  subtitle: _step > 0 ? Text('${_lines.length} selected') : null,
                   isActive: _step >= 0,
                   state: _step > 0 ? StepState.complete : StepState.indexed,
                   content: _vehiclesStep(list),
                 ),
                 Step(
-                  title: const Text('Fuel & quantity'),
+                  title: const Text('Fuel'),
                   isActive: _step >= 1,
                   state: _step > 1 ? StepState.complete : StepState.indexed,
                   content: _fuelStep(list),
                 ),
                 Step(
                   title: const Text('Delivery'),
-                  subtitle: _step > 2 ? Text(formatDateTime(_scheduledAt)) : null,
                   isActive: _step >= 2,
                   state: _step > 2 ? StepState.complete : StepState.indexed,
                   content: _deliveryStep(),
                 ),
                 Step(
-                  title: const Text('Review'),
+                  title: const Text('Invoice'),
                   isActive: _step >= 3,
+                  state: StepState.indexed,
                   content: _reviewStep(list),
                 ),
               ],
@@ -203,29 +255,70 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
 
   Widget _controls() {
     return Padding(
-      padding: const EdgeInsets.only(top: AppTheme.gap16),
+      padding: const EdgeInsets.only(top: AppTheme.gap24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_stepError != null) ...[
-            Text(_stepError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Container(
+              padding: const EdgeInsets.all(AppTheme.gap12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFCA5A5)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _stepError!,
+                      style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: AppTheme.gap12),
           ],
           Row(
             children: [
               if (_step > 0) ...[
-                OutlinedButton(onPressed: _placing ? null : _back, child: const Text('Back')),
+                OutlinedButton(
+                  onPressed: _placing ? null : _back,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Back'),
+                ),
                 const SizedBox(width: AppTheme.gap12),
               ],
               Expanded(
                 child: _step < 3
-                    ? FilledButton(onPressed: _next, child: const Text('Continue'))
+                    ? FilledButton(
+                        onPressed: _next,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF059669),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Continue', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      )
                     : FilledButton.icon(
                         onPressed: _placing ? null : _placeOrder,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF059669),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                         icon: _placing
-                            ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.lock_outline),
-                        label: const Text('Place order & pay'),
+                            ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.lock_rounded, size: 18),
+                        label: const Text('Confirm Order & Pay', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                       ),
               ),
             ],
@@ -235,118 +328,206 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
     );
   }
 
-  // ---------- Step 1 ----------
+  // ---------- Step 1: Vehicle Selection ----------
   Widget _vehiclesStep(List<Vehicle> vehicles) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const Text(
+          'Select vehicles or generators to receive fuel:',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+        const SizedBox(height: 8),
         for (final v in vehicles)
-          CheckboxListTile(
-            value: _lines.containsKey(v.id),
-            contentPadding: EdgeInsets.zero,
-            secondary: Icon(v.type.icon),
-            title: Text(v.nickname),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: AppTheme.gap4),
-              child: Wrap(
-                spacing: AppTheme.gap8,
-                runSpacing: AppTheme.gap4,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  LicensePlate(v.registrationNumber, compact: true),
-                  if (!v.isVerified) StatusChip.verification(v.verificationStatus),
-                ],
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              color: _lines.containsKey(v.id) ? const Color(0xFF059669).withValues(alpha: 0.08) : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: _lines.containsKey(v.id) ? const Color(0xFF059669) : Colors.grey.withValues(alpha: 0.25),
+                width: _lines.containsKey(v.id) ? 1.5 : 1,
               ),
             ),
-            // Only verified vehicles can receive fuel.
-            onChanged: v.isVerified
-                ? (checked) => setState(() {
-                      _stepError = null;
-                      if (checked == true) {
-                        _lines[v.id] = _LineInput(v.fuelType);
-                      } else {
-                        _lines.remove(v.id)?.litres.dispose();
-                      }
-                    })
-                : null,
+            child: CheckboxListTile(
+              value: _lines.containsKey(v.id),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              secondary: Icon(v.type.icon, color: const Color(0xFF059669)),
+              title: Text(v.nickname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    LicensePlate(v.registrationNumber, compact: true),
+                    Text(v.fuelType.label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    if (!v.isVerified) StatusChip.verification(v.verificationStatus),
+                  ],
+                ),
+              ),
+              onChanged: v.isVerified
+                  ? (checked) => setState(() {
+                        _stepError = null;
+                        if (checked == true) {
+                          _lines[v.id] = _LineInput(v.fuelType);
+                        } else {
+                          _lines.remove(v.id)?.litres.dispose();
+                        }
+                      })
+                  : null,
+            ),
           ),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             onPressed: () => context.push('/vehicle/new'),
-            icon: const Icon(Icons.add),
-            label: const Text('Register another vehicle'),
+            icon: const Icon(Icons.add_rounded, color: Color(0xFF059669)),
+            label: const Text('Register Another Vehicle or Generator', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF059669))),
           ),
         ),
       ],
     );
   }
 
-  // ---------- Step 2 ----------
+  // ---------- Step 2: Fuel & Quantity ----------
   Widget _fuelStep(List<Vehicle> vehicles) {
     final prices = ref.watch(fuelProductsProvider).value ?? [];
     double? priceOf(FuelType t) => prices.where((p) => p.type == t).firstOrNull?.pricePerLitre;
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final entry in _lines.entries) ...[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AppTheme.gap12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Builder(builder: (context) {
-                    final v = vehicles.firstWhere((v) => v.id == entry.key);
-                    return Row(
-                      children: [
-                        Icon(v.type.icon),
-                        const SizedBox(width: AppTheme.gap8),
-                        Expanded(child: Text(v.nickname, style: Theme.of(context).textTheme.titleSmall)),
-                        LicensePlate(v.registrationNumber, compact: true),
-                      ],
-                    );
-                  }),
-                  const SizedBox(height: AppTheme.gap12),
-                  SegmentedButton<FuelType>(
-                    showSelectedIcon: false,
-                    segments: [for (final t in FuelType.values) ButtonSegment(value: t, label: Text(t.label))],
-                    selected: {entry.value.fuelType},
-                    onSelectionChanged: (s) => setState(() => entry.value.fuelType = s.first),
-                  ),
-                  const SizedBox(height: AppTheme.gap12),
-                  TextField(
-                    controller: entry.value.litres,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
-                    onChanged: (_) => setState(() => _stepError = null),
-                    decoration: InputDecoration(
-                      labelText: 'Quantity',
-                      suffixText: 'litres',
-                      helperText: priceOf(entry.value.fuelType) == null
-                          ? null
-                          : '${formatMoney(priceOf(entry.value.fuelType)!)} per litre · '
-                              '≈ ${formatMoney((entry.value.litresValue ?? 0) * priceOf(entry.value.fuelType)!)}',
-                    ),
-                  ),
-                ],
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFECFDF5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFA7F3D0)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: Color(0xFF047857), size: 18),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Minimum delivery order is 20 Litres per SOP §5.4 commercial standards.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF065F46), fontWeight: FontWeight.w600),
+                ),
               ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppTheme.gap16),
+        for (final entry in _lines.entries) ...[
+          Container(
+            padding: const EdgeInsets.all(AppTheme.gap16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardTheme.color,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Builder(builder: (context) {
+                  final v = vehicles.firstWhere((v) => v.id == entry.key);
+                  return Row(
+                    children: [
+                      Icon(v.type.icon, color: const Color(0xFF059669)),
+                      const SizedBox(width: AppTheme.gap8),
+                      Expanded(
+                        child: Text(v.nickname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      ),
+                      LicensePlate(v.registrationNumber, compact: true),
+                    ],
+                  );
+                }),
+                const SizedBox(height: AppTheme.gap12),
+                const Text('Fuel Type', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                SegmentedButton<FuelType>(
+                  showSelectedIcon: false,
+                  segments: [for (final t in FuelType.values) ButtonSegment(value: t, label: Text(t.label))],
+                  selected: {entry.value.fuelType},
+                  onSelectionChanged: (s) => setState(() => entry.value.fuelType = s.first),
+                ),
+                const SizedBox(height: AppTheme.gap16),
+                const Text('Volume (Litres)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    for (final preset in [20, 35, 50, 75]) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ActionChip(
+                          avatar: const Icon(Icons.water_drop_rounded, size: 14, color: Color(0xFF059669)),
+                          label: Text('${preset}L', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            setState(() {
+                              entry.value.litres.text = preset.toString();
+                              _stepError = null;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: entry.value.litres,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+                  onChanged: (_) => setState(() => _stepError = null),
+                  decoration: InputDecoration(
+                    labelText: 'Custom Litres',
+                    suffixText: 'Litres',
+                    helperText: priceOf(entry.value.fuelType) == null
+                        ? null
+                        : 'Govt. rate: ${formatMoney(priceOf(entry.value.fuelType)!)}/L · Est. fuel cost: ${formatMoney((entry.value.litresValue ?? 0) * priceOf(entry.value.fuelType)!)}',
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: AppTheme.gap12),
+          const SizedBox(height: AppTheme.gap16),
         ],
       ],
     );
   }
 
-  // ---------- Step 3 ----------
+  // ---------- Step 3: Delivery Location & Slot ----------
   Widget _deliveryStep() {
-    // Suggest addresses from previous orders.
     final previous = {...?ref.watch(ordersProvider).value?.map((o) => o.address)}.take(3);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Lead-time notice
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBEB),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFFDE68A)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.schedule_rounded, color: Color(0xFFD97706), size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'SOP §5.2 Mandatory 24h Lead Time: Delivery slots are locked 24 hours prior for fleet route optimization.',
+                  style: TextStyle(color: Color(0xFF92400E), fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppTheme.gap16),
+
         TextField(
           controller: _address,
           minLines: 1,
@@ -354,9 +535,9 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
           textCapitalization: TextCapitalization.sentences,
           onChanged: (_) => setState(() => _stepError = null),
           decoration: const InputDecoration(
-            labelText: 'Delivery address',
-            prefixIcon: Icon(Icons.location_on_outlined),
-            helperText: 'Where the vehicles will be parked',
+            labelText: 'Delivery Address & Location Pin',
+            prefixIcon: Icon(Icons.location_on_rounded, color: Color(0xFF059669)),
+            helperText: 'e.g. House 12, Road 5, Dhanmondi, Dhaka',
           ),
         ),
         if (previous.isNotEmpty) ...[
@@ -366,7 +547,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
             children: [
               for (final a in previous)
                 ActionChip(
-                  avatar: const Icon(Icons.history, size: 18),
+                  avatar: const Icon(Icons.history_rounded, size: 16),
                   label: Text(a, overflow: TextOverflow.ellipsis),
                   onPressed: () => setState(() {
                     _address.text = a;
@@ -377,107 +558,241 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
           ),
         ],
         const SizedBox(height: AppTheme.gap16),
+
+        // Date selection
         Card(
           child: ListTile(
-            leading: const Icon(Icons.event_outlined),
-            title: Text(formatDateTime(_scheduledAt)),
-            subtitle: Text(
-              _timeValid ? 'Delivery time' : 'Must be at least 24 hours from now',
-              style: _timeValid ? null : TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-            trailing: const Icon(Icons.edit_outlined),
-            onTap: _pickTime,
+            leading: const Icon(Icons.calendar_month_rounded, color: Color(0xFF059669)),
+            title: Text(formatDate(_scheduledAt), style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: const Text('Delivery Date (Select Date)'),
+            trailing: const Icon(Icons.edit_calendar_rounded),
+            onTap: _pickDate,
           ),
         ),
+        const SizedBox(height: AppTheme.gap12),
+
+        // 2-Hour Slot Selector (SOP §5.2)
+        const Text('Select Delivery Window (2-Hour Slot):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _SlotChip(
+              title: '08:00 - 10:00 (Morning)',
+              hour: 8,
+              isSelected: _selectedSlotWindow == '08:00 - 10:00',
+              onTap: () => _selectSlot('08:00 - 10:00', 8),
+            ),
+            _SlotChip(
+              title: '10:00 - 12:00 (Noon)',
+              hour: 10,
+              isSelected: _selectedSlotWindow == '10:00 - 12:00',
+              onTap: () => _selectSlot('10:00 - 12:00', 10),
+            ),
+            _SlotChip(
+              title: '14:00 - 16:00 (Afternoon)',
+              hour: 14,
+              isSelected: _selectedSlotWindow == '14:00 - 16:00',
+              onTap: () => _selectSlot('14:00 - 16:00', 14),
+            ),
+            _SlotChip(
+              title: '18:00 - 20:00 (Evening)',
+              hour: 18,
+              isSelected: _selectedSlotWindow == '18:00 - 20:00',
+              onTap: () => _selectSlot('18:00 - 20:00', 18),
+            ),
+          ],
+        ),
         const SizedBox(height: AppTheme.gap16),
+
+        TextField(
+          controller: _siteContact,
+          decoration: const InputDecoration(
+            labelText: 'On-Site Contact Person & Phone (SOP §4.1)',
+            prefixIcon: Icon(Icons.contact_phone_outlined),
+            hintText: 'e.g. Rahim (Security / Driver) - 017XXXXXXXX',
+          ),
+        ),
+        const SizedBox(height: AppTheme.gap12),
         TextField(
           controller: _notes,
-          minLines: 1,
-          maxLines: 3,
           decoration: const InputDecoration(
-            labelText: 'Notes for the driver (optional)',
-            prefixIcon: Icon(Icons.sticky_note_2_outlined),
+            labelText: 'Site Access Instructions (Gate, basement height, etc.)',
+            prefixIcon: Icon(Icons.notes_rounded),
           ),
         ),
       ],
     );
   }
 
-  // ---------- Step 4 ----------
+  // ---------- Step 4: Invoice & Review ----------
   Widget _reviewStep(List<Vehicle> vehicles) {
-    final theme = Theme.of(context);
     final companies = (ref.watch(affiliationsProvider).value ?? []).where((a) => a.isActive).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final e in _lines.entries)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(vehicles.firstWhere((v) => v.id == e.key).type.icon),
-            title: Text(vehicles.firstWhere((v) => v.id == e.key).nickname),
-            subtitle: Text('${e.value.fuelType.label} · ${formatLitres(e.value.litresValue ?? 0)}'),
+        Container(
+          padding: const EdgeInsets.all(AppTheme.gap16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardTheme.color,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
           ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.location_on_outlined),
-          title: Text(_address.text),
-          subtitle: Text(formatDateTime(_scheduledAt)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('ORDER SPECIFICATION (SOP §5.3)', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+              const Divider(height: 20),
+              for (final e in _lines.entries) ...[
+                Builder(builder: (context) {
+                  final v = vehicles.firstWhere((veh) => veh.id == e.key);
+                  return Row(
+                    children: [
+                      Icon(v.type.icon, size: 20, color: const Color(0xFF059669)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text('${v.nickname} (${v.registrationNumber})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      Text('${e.value.fuelType.label} · ${formatLitres(e.value.litresValue ?? 0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  );
+                }),
+                const SizedBox(height: 8),
+              ],
+              const Divider(height: 20),
+              Row(
+                children: [
+                  const Icon(Icons.schedule_rounded, size: 18, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${formatDate(_scheduledAt)} · Window: $_selectedSlotWindow',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.location_on_rounded, size: 18, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(_address.text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
+        const SizedBox(height: AppTheme.gap16),
+
         if (companies.isNotEmpty) ...[
-          const SizedBox(height: AppTheme.gap8),
-          Text('Bill to', style: theme.textTheme.titleSmall),
-          const SizedBox(height: AppTheme.gap8),
+          const Text('BILLING ACCOUNT (SOP §7.1)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
           Wrap(
             spacing: AppTheme.gap8,
-            runSpacing: AppTheme.gap8,
             children: [
               ChoiceChip(
-                label: const Text('Myself'),
+                label: const Text('Direct Payment (Prepaid)'),
                 selected: _corporateId == null,
                 onSelected: (_) => setState(() => _corporateId = null),
               ),
               for (final CorporateAffiliation c in companies)
                 ChoiceChip(
-                  avatar: const Icon(Icons.business_outlined, size: 18),
-                  label: Text(c.companyName),
+                  avatar: const Icon(Icons.business_center_rounded, size: 16),
+                  label: Text('${c.companyName} (Credit)'),
                   selected: _corporateId == c.id,
                   onSelected: (_) => setState(() => _corporateId = c.id),
                 ),
             ],
           ),
+          const SizedBox(height: AppTheme.gap16),
         ],
-        const Divider(height: AppTheme.gap32),
+
+        // Invoicing breakdown
         FutureBuilder<OrderQuote>(
           future: _quote,
           builder: (context, snap) {
-            if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+            if (!snap.hasData) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
             final q = snap.data!;
-            return Column(
-              children: [
-                _priceRow('Fuel', formatMoney(q.subtotal)),
-                _priceRow('Delivery fee', formatMoney(q.deliveryFee)),
-                const SizedBox(height: AppTheme.gap8),
-                _priceRow('Total', formatMoney(q.total), bold: true),
-              ],
+            return Container(
+              padding: const EdgeInsets.all(AppTheme.gap16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  _priceRowDark('Fuel Charge (Litres × Unit Rate)', formatMoney(q.subtotal)),
+                  const SizedBox(height: 6),
+                  _priceRowDark('Zone-based Delivery Charge (Zone A)', formatMoney(q.deliveryFee)),
+                  const Divider(color: Color(0xFF334155), height: 20),
+                  _priceRowDark('Total Payable Invoice', formatMoney(q.total), isTotal: true),
+                ],
+              ),
             );
           },
         ),
-        const SizedBox(height: AppTheme.gap8),
-        Text(
-          'The driver will match each vehicle’s number plate before fuelling. '
-          'Final amount is based on the quantity actually delivered.',
-          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(height: AppTheme.gap12),
+        const Text(
+          '✓ Flow meter calibrated according to National Metrology standards.\n✓ Number plate and security seal verified before fueling.',
+          style: TextStyle(fontSize: 11, color: Colors.grey, height: 1.4),
         ),
       ],
     );
   }
 
-  Widget _priceRow(String label, String value, {bool bold = false}) {
-    final style = bold ? Theme.of(context).textTheme.titleMedium : Theme.of(context).textTheme.bodyMedium;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(children: [Expanded(child: Text(label, style: style)), Text(value, style: style)]),
+  Widget _priceRowDark(String label, String value, {bool isTotal = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: isTotal ? Colors.white : Colors.white70,
+            fontWeight: isTotal ? FontWeight.w900 : FontWeight.w500,
+            fontSize: isTotal ? 16 : 13,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: isTotal ? const Color(0xFF34D399) : Colors.white,
+            fontWeight: isTotal ? FontWeight.w900 : FontWeight.w700,
+            fontSize: isTotal ? 18 : 13,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SlotChip extends StatelessWidget {
+  const _SlotChip({
+    required this.title,
+    required this.hour,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String title;
+  final int hour;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(title, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500)),
+      selected: isSelected,
+      onSelected: (_) => onTap(),
+      selectedColor: const Color(0xFF059669),
+      labelStyle: TextStyle(color: isSelected ? Colors.white : null),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      showCheckmark: false,
     );
   }
 }

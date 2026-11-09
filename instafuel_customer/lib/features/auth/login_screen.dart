@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/responsive_center.dart';
 import 'auth_controller.dart';
@@ -37,7 +36,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
     try {
       await ref.read(authControllerProvider.notifier).login(_identifier.text, _password.text);
-      // The router redirects to /home once the user is set.
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -53,10 +51,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppTheme.gap24),
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.gap24, vertical: AppTheme.gap16),
           child: ResponsiveCenter(
             maxWidth: 440,
             child: Form(
@@ -65,10 +65,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: AppTheme.gap32),
+                    const SizedBox(height: AppTheme.gap24),
                     const AuthHeader(
                       title: 'Welcome back',
-                      subtitle: 'Log in to order fuel and track your deliveries.',
+                      subtitle: 'Sign in to order doorstep Octane, Petrol & Diesel for your vehicles and generators.',
                     ),
                     TextFormField(
                       controller: _identifier,
@@ -76,58 +76,122 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.email, AutofillHints.telephoneNumber],
                       decoration: const InputDecoration(
-                        labelText: 'Email or phone',
-                        prefixIcon: Icon(Icons.person_outline),
+                        labelText: 'Email or Mobile Number',
+                        prefixIcon: Icon(Icons.person_outline_rounded),
+                        hintText: 'e.g. 01700000000 or user@example.com',
                       ),
-                      validator: (v) => requiredField(v, 'Email or phone'),
+                      validator: (v) => v == null || v.trim().isEmpty ? 'Enter your email or phone number' : null,
                     ),
                     const SizedBox(height: AppTheme.gap16),
                     PasswordField(
                       controller: _password,
-                      textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _submit(),
-                      validator: (v) => requiredField(v, 'Password'),
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Password reset is coming soon.')),
-                        ),
-                        child: const Text('Forgot password?'),
-                      ),
+                      validator: (v) => v == null || v.isEmpty ? 'Enter your password' : null,
                     ),
                     if (_error != null) ...[
-                      Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
                       const SizedBox(height: AppTheme.gap12),
-                    ],
-                    FilledButton(
-                      onPressed: _loading ? null : _submit,
-                      child: _loading
-                          ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
-                          : const Text('Log in'),
-                    ),
-                    const SizedBox(height: AppTheme.gap16),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        const Text("Don't have an account?"),
-                        TextButton(onPressed: () => context.go('/register'), child: const Text('Sign up')),
-                      ],
-                    ),
-                    // Demo account only exists in the offline mock (MOCK_API=true).
-                    if (useMockApi) ...[
-                      const SizedBox(height: AppTheme.gap24),
-                      Card(
-                        child: ListTile(
-                          leading: const Icon(Icons.info_outline),
-                          title: const Text('Demo account'),
-                          subtitle: const Text('demo@instafuel.app · password123'),
-                          trailing: TextButton(onPressed: _fillDemo, child: const Text('Use')),
+                      Container(
+                        padding: const EdgeInsets.all(AppTheme.gap12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.errorContainer.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.error_outline_rounded, color: theme.colorScheme.error, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _error!,
+                                style: TextStyle(color: theme.colorScheme.error, fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
+                    const SizedBox(height: AppTheme.gap24),
+                    FilledButton(
+                      onPressed: _loading ? null : _submit,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF059669),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: _loading
+                          ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Sign In', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    ),
+                    const SizedBox(height: AppTheme.gap16),
+
+                    // Demo Helper Box
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.gap12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.flash_on_rounded, color: Color(0xFF059669), size: 20),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Developer Demo Account',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _fillDemo,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              foregroundColor: const Color(0xFF059669),
+                            ),
+                            child: const Text('Fill Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: AppTheme.gap24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(child: Text("Don't have an account?", style: theme.textTheme.bodyMedium, overflow: TextOverflow.ellipsis)),
+                        TextButton(
+                          onPressed: () => context.go('/register'),
+                          child: const Text('Register Now', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: AppTheme.gap32),
+                    // SOP Compliance Footer
+                    Center(
+                      child: Column(
+                        children: [
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.shield_outlined, size: 14, color: Colors.grey),
+                              SizedBox(width: 4),
+                              Text(
+                                'PESO COMPLIANT & LICENSED FUEL OPERATOR',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'SOP-OPS-001 Certified · Minimum 24h Lead Time Required',
+                            style: TextStyle(fontSize: 10, color: Colors.grey.withValues(alpha: 0.8)),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),

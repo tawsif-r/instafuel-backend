@@ -32,7 +32,7 @@ Future<void> _pumpApp(WidgetTester tester) async {
 Future<void> _logIn(WidgetTester tester, String identifier, String password) async {
   await tester.enterText(find.byType(TextFormField).first, identifier);
   await tester.enterText(find.byType(TextFormField).last, password);
-  await tester.tap(find.widgetWithText(FilledButton, 'Log in'));
+  await tester.tap(find.widgetWithText(FilledButton, 'Sign In'));
   await tester.pumpAndSettle();
 }
 
@@ -59,19 +59,19 @@ void main() {
 
   testWidgets('register creates the account and opens an empty dashboard', (tester) async {
     await _pumpApp(tester);
-    await tester.tap(find.text('Sign up'));
+    await tester.tap(find.text('Register Now'));
     await tester.pumpAndSettle();
 
     Finder field(String label) => find.widgetWithText(TextFormField, label);
-    await tester.enterText(field('Full name'), 'Karim Uddin');
-    await tester.enterText(field('Email'), 'karim@example.com');
-    await tester.enterText(field('Mobile number'), '01811111111');
-    await tester.enterText(field('Password'), 'secret123');
-    await tester.enterText(field('Confirm password'), 'secret123');
+    await tester.enterText(field('Full Name'), 'Karim Uddin');
+    await tester.enterText(field('Email Address'), 'karim@example.com');
+    await tester.enterText(field('Mobile Number (Required for Delivery Pin)'), '01811111111');
+    await tester.enterText(field('Create Password (min. 8 characters)'), 'secret123');
+    await tester.enterText(field('Confirm Password'), 'secret123');
     await tester.ensureVisible(find.byType(CheckboxListTile));
     await tester.tap(find.byType(CheckboxListTile));
-    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Create account'));
-    await tester.tap(find.widgetWithText(FilledButton, 'Create account'));
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Complete Onboarding'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Complete Onboarding'));
     await tester.pumpAndSettle();
 
     expect(find.text('Hello, Karim'), findsOneWidget);

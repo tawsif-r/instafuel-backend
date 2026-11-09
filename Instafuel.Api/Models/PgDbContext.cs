@@ -14,6 +14,8 @@ public class PgDbContext : DbContext
 
     // Users & suppliers
     public DbSet<User> Users { get; set; }
+    public DbSet<Company> Companies { get; set; }
+    public DbSet<CompanyMember> CompanyMembers { get; set; }
     public DbSet<Supplier> Suppliers { get; set; }
     public DbSet<SupplierMember> SupplierMembers { get; set; }
     public DbSet<SupplierLocation> SupplierLocations { get; set; }
@@ -62,6 +64,7 @@ public class PgDbContext : DbContext
             e.Property(u => u.Phone).HasMaxLength(20);
             e.Property(u => u.Role).HasMaxLength(30);
             e.Property(u => u.AccountType).HasMaxLength(30);
+            e.Property(u => u.CompanyName).HasMaxLength(150);
             // Unique, but NULLs are allowed (Postgres treats NULLs as distinct).
             e.HasIndex(u => u.Email).IsUnique();
             e.HasIndex(u => u.Phone).IsUnique();
@@ -302,6 +305,35 @@ public class PgDbContext : DbContext
                 .HasForeignKey(h => h.DeliveryId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(h => h.RecordedByUser).WithMany()
                 .HasForeignKey(h => h.RecordedByUserId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ---------- Company & Corporate Membership ----------
+        modelBuilder.Entity<Company>(e =>
+        {
+            e.Property(c => c.Name).HasMaxLength(150).IsRequired();
+            e.Property(c => c.Code).HasMaxLength(50).IsRequired();
+            e.HasIndex(c => c.Code).IsUnique();
+            e.Property(c => c.CreditLimit).HasPrecision(14, 2);
+            e.Property(c => c.UsedCredit).HasPrecision(14, 2);
+            e.ToTable(t => t.HasCheckConstraint("CK_Company_Credit", "\"UsedCredit\" <= \"CreditLimit\" AND \"UsedCredit\" >= 0"));
+        });
+
+        modelBuilder.Entity<CompanyMember>(e =>
+        {
+            e.HasIndex(m => new { m.CompanyId, m.UserId }).IsUnique();
+            e.Property(m => m.Role).HasMaxLength(20).IsRequired();
+            e.Property(m => m.Status).HasMaxLength(20).IsRequired();
+            e.Property(m => m.CreditLimit).HasPrecision(14, 2);
+            e.Property(m => m.UsedCredit).HasPrecision(14, 2);
+            e.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_CompanyMember_Role", "\"Role\" IN ('member', 'manager')");
+                t.HasCheckConstraint("CK_CompanyMember_Status", "\"Status\" IN ('pending', 'active', 'rejected')");
+            });
+            e.HasOne(m => m.Company).WithMany(c => c.Members)
+                .HasForeignKey(m => m.CompanyId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(m => m.User).WithMany(u => u.CompanyMemberships)
+                .HasForeignKey(m => m.UserId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

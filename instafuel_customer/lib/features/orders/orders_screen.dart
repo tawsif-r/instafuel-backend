@@ -21,13 +21,42 @@ class OrdersScreen extends ConsumerWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Orders'),
-          bottom: const TabBar(tabs: [Tab(text: 'Active'), Tab(text: 'Past')]),
+          title: const Text('Fuel Orders & Dispatches'),
+          bottom: const TabBar(
+            indicatorColor: Color(0xFF059669),
+            labelColor: Color(0xFF059669),
+            unselectedLabelColor: Colors.grey,
+            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            tabs: [
+              Tab(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.local_shipping_outlined, size: 18),
+                    SizedBox(width: 8),
+                    Text('Active Deliveries'),
+                  ],
+                ),
+              ),
+              Tab(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.history_rounded, size: 18),
+                    SizedBox(width: 8),
+                    Text('Completed & Past'),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => context.push('/new-order'),
-          icon: const Icon(Icons.add),
-          label: const Text('New order'),
+          backgroundColor: const Color(0xFF059669),
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Schedule Refuel', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
         body: AsyncValueView(
           value: orders,
@@ -36,13 +65,13 @@ class OrdersScreen extends ConsumerWidget {
             children: [
               _OrderList(
                 orders: list.where((o) => o.isActive).toList(),
-                emptyTitle: 'No active orders',
-                emptyMessage: 'Orders you place will show up here until they are delivered.',
+                emptyTitle: 'No Active Fuel Deliveries',
+                emptyMessage: 'Booked doorstep fuel orders with scheduled slots appear here until delivered.',
               ),
               _OrderList(
                 orders: list.where((o) => !o.isActive).toList(),
-                emptyTitle: 'No past orders yet',
-                emptyMessage: 'Completed and cancelled orders are kept here.',
+                emptyTitle: 'No Past Delivery Records',
+                emptyMessage: 'Completed delivery manifests and settled fuel invoices will be archived here.',
               ),
             ],
           ),
@@ -62,7 +91,11 @@ class _OrderList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (orders.isEmpty) {
-      return EmptyState(icon: Icons.receipt_long_outlined, title: emptyTitle, message: emptyMessage);
+      return EmptyState(
+        icon: Icons.receipt_long_rounded,
+        title: emptyTitle,
+        message: emptyMessage,
+      );
     }
     return RefreshIndicator(
       onRefresh: () => ref.refresh(ordersProvider.future),

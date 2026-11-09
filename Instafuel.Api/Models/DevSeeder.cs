@@ -42,6 +42,21 @@ public static class DevSeeder
         }
 
         context.Suppliers.Add(supplier);
+
+        if (!await context.Companies.AnyAsync())
+        {
+            context.Companies.Add(new Company
+            {
+                Name = "Northwind Logistics Ltd.",
+                Code = "NORTHWIND",
+                ContactEmail = "corporate@northwind.com",
+                ContactPhone = "01700000001",
+                CreditLimit = 100000m,
+                UsedCredit = 0m,
+                IsActive = true
+            });
+        }
+
         await context.SaveChangesAsync();
     }
 }

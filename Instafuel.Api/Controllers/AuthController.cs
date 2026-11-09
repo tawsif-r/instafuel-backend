@@ -49,7 +49,10 @@ public class AuthController : ControllerBase
                 Email = email,
                 Phone = phone,
                 Role = "customer",
-                AccountType = request.AccountType
+                AccountType = request.AccountType,
+                CompanyName = request.AccountType == "corporate"
+                    ? string.IsNullOrWhiteSpace(request.CompanyName) ? null : request.CompanyName.Trim()
+                    : null
             };
             user.PasswordHash = _hasher.HashPassword(user, request.Password);
 

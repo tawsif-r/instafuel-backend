@@ -54,6 +54,107 @@ namespace Instafuel.Api.Migrations
                     b.ToTable("Categories");
                 });
 
+            modelBuilder.Entity("Instafuel.Api.Models.Company", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ContactEmail")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContactPhone")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("CreditLimit")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("UsedCredit")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Companies", t =>
+                        {
+                            t.HasCheckConstraint("CK_Company_Credit", "\"UsedCredit\" <= \"CreditLimit\" AND \"UsedCredit\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Instafuel.Api.Models.CompanyMember", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("CreditLimit")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("UsedCredit")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("CompanyId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("CompanyMembers", t =>
+                        {
+                            t.HasCheckConstraint("CK_CompanyMember_Role", "\"Role\" IN ('member', 'manager')");
+
+                            t.HasCheckConstraint("CK_CompanyMember_Status", "\"Status\" IN ('pending', 'active', 'rejected')");
+                        });
+                });
+
             modelBuilder.Entity("Instafuel.Api.Models.CustomerVehicle", b =>
                 {
                     b.Property<Guid>("Id")
@@ -878,6 +979,10 @@ namespace Instafuel.Api.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<string>("CompanyName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -985,6 +1090,25 @@ namespace Instafuel.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Parent");
+                });
+
+            modelBuilder.Entity("Instafuel.Api.Models.CompanyMember", b =>
+                {
+                    b.HasOne("Instafuel.Api.Models.Company", "Company")
+                        .WithMany("Members")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Instafuel.Api.Models.User", "User")
+                        .WithMany("CompanyMemberships")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Instafuel.Api.Models.CustomerVehicle", b =>
@@ -1246,6 +1370,11 @@ namespace Instafuel.Api.Migrations
                     b.Navigation("Products");
                 });
 
+            modelBuilder.Entity("Instafuel.Api.Models.Company", b =>
+                {
+                    b.Navigation("Members");
+                });
+
             modelBuilder.Entity("Instafuel.Api.Models.CustomerVehicle", b =>
                 {
                     b.Navigation("Documents");
@@ -1317,6 +1446,8 @@ namespace Instafuel.Api.Migrations
 
             modelBuilder.Entity("Instafuel.Api.Models.User", b =>
                 {
+                    b.Navigation("CompanyMemberships");
+
                     b.Navigation("CustomerVehicles");
 
                     b.Navigation("Driver");
