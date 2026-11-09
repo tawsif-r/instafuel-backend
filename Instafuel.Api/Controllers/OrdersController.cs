@@ -1,11 +1,13 @@
 using Instafuel.Api.Dtos;
 using Instafuel.Api.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace Instafuel.Api.Controllers;
 
 [ApiController]
+[Authorize(Roles = "admin")]
 [Route("api/[controller]")]
 public class OrdersController : ControllerBase
 {
@@ -76,6 +78,10 @@ public class OrdersController : ControllerBase
 
             if (request.Items.Select(i => i.SupplierOfferId).Distinct().Count() != request.Items.Count)
                 return BadRequest(new { message = "Each offer can appear only once in an order." });
+
+            var totalLitres = request.Items.Sum(i => i.Quantity);
+            if (totalLitres < 20.0m)
+                return BadRequest(new { message = $"Minimum total order volume is 20 litres (SOP §5.4). Current order: {totalLitres:0.#} litres." });
 
             var offerIds = request.Items.Select(i => i.SupplierOfferId).ToList();
             var offers = await _context.SupplierOffers

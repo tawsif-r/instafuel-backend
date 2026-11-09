@@ -1,5 +1,6 @@
 using Instafuel.Api.Dtos;
 using Instafuel.Api.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,6 +21,7 @@ public class ProductsController : ControllerBase
 
     // GET api/products?categoryId=...
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<Product>>> GetProducts([FromQuery] Guid? categoryId)
     {
         try
@@ -40,6 +42,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [AllowAnonymous]
     public async Task<ActionResult<Product>> GetProduct(Guid id)
     {
         try
@@ -58,6 +61,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<Product>> CreateProduct(SaveProductRequest request)
     {
         try
@@ -81,6 +85,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<Product>> UpdateProduct(Guid id, SaveProductRequest request)
     {
         try
@@ -105,6 +110,7 @@ public class ProductsController : ControllerBase
 
     // Soft delete: offers and past order items point at products.
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> DeactivateProduct(Guid id)
     {
         try
