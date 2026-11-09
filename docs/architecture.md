@@ -58,6 +58,7 @@ All under `/api`. Swagger UI at `/swagger` in Development.
 |---|---|
 | `auth` | `POST register` (customer sign-up), `POST login` (email or phone), `GET me` (needs token). Register/login return `{ token, expiresAt, user }`. |
 | `me/vehicles` | Logged-in customer's vehicles (token required): `GET`, `GET {id}`, `POST`, `PUT {id}`, `DELETE {id}` (soft delete) |
+| `me/corporate` | Logged-in customer's corporate links (token required): `GET` (list affiliations), `POST join` (join by company code) |
 | `me/orders` | Logged-in customer's orders (token required): `GET fuel-products`, `POST quote`, `GET`, `GET {id}`, `POST`, `POST {id}/cancel`, `POST {id}/payments` |
 | `customer-vehicles` | Admin only: `GET ?status=pending` (review queue), `PATCH {id}/verification` (verified / rejected + reason) |
 | `users` | `GET`, `GET {id}`, `POST`, `PUT {id}`, `DELETE {id}` (deactivate) |
@@ -145,7 +146,7 @@ dotnet ef database update
 
 Flutter (Android + Web), Riverpod, go_router. Details in [instafuel_customer/README.md](../instafuel_customer/README.md).
 
-- UI talks only to repository interfaces (`lib/data/repositories.dart`). Auth and vehicles use the real API (`ApiAuthRepository`, `ApiVehicleRepository`; token in `flutter_secure_storage`); orders and payments use `ApiOrderRepository` / `ApiPaymentRepository`; corporate is still an in-memory mock. `lib/data/providers.dart` is the single place to switch to API implementations.
+- UI talks only to repository interfaces (`lib/data/repositories.dart`). Auth and vehicles use the real API (`ApiAuthRepository`, `ApiVehicleRepository`; token in `flutter_secure_storage`); orders and payments use `ApiOrderRepository` / `ApiPaymentRepository`; corporate uses `ApiCorporateRepository` (`/api/me/corporate`). `lib/data/providers.dart` is the single place to switch to API implementations.
 - Model/status names match the API (`OrderStatus`, `DeliveryStatus`, payment methods).
 - **Orders are a list of lines, one per vehicle** (`vehicle + fuel + litres`). One order can fuel several vehicles, and the driver checks each vehicle's number plate separately.
 
@@ -155,11 +156,16 @@ Flutter (Android + Web), Riverpod, go_router. Details in [instafuel_customer/REA
 |---|---|
 | Vehicle documents | Real file upload + storage (S3). Today only the file name is saved. |
 | Plate check at delivery | `OrderItem.PlateVerifiedAt` exists; needs a driver-app endpoint to set it. |
-| Corporate accounts | Company, membership (pending/active, role), credit limit and usage. `corporate_credit` payment method. |
 | Delivery fee rules | Fee by distance/zone (flat config value today). |
 | Card / mobile banking | Real payment gateway redirect. |
 
 ## Change log
+
+### 2026-11-05 – customer corporate accounts & billing
+- API: `Company` and `CompanyMember` models (composite unique key, credit check constraints, cascade deletes). `MyCorporateController` (`api/me/corporate`: list affiliations, join by code).
+- `MyOrdersController`: enabled real `corporate_credit` payment method; validates active corporate status and credit limit, deducts used credit, and auto-refunds credit on order cancellation.
+- Migration `AddCorporateEntities`.
+- Customer app: `ApiCorporateRepository`, wired up in `data/providers.dart`, unit test in `test/api_corporate_repository_test.dart`.
 
 ### 2026-11-05 – customer orders
 - API: `MyOrdersController` (`api/me/orders`: fuel prices, quote, list/get, place, cancel, pay), `Dtos/MyOrderRequests.cs`, `Dtos/MyOrderResponses.cs`, `Extensions/FuelOfferQueries.cs`, `Models/DevSeeder.cs`. Config `Orders:*`, `Payments:SimulateGateway`, `Seed:DevFuelCatalog`.

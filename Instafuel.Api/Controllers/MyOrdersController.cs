@@ -216,9 +216,26 @@ public class MyOrdersController : ControllerBase
             }
 
             // Nothing was collected yet for cash/bank transfer, so drop those.
-            // TODO: refund successful payments (Refund entity) once the gateway exists.
-            foreach (var payment in order.Payments.Where(p => p.Status == "pending"))
-                payment.Status = "cancelled";
+            // Corporate credit payments restore the used credit limit upon cancellation.
+            foreach (var payment in order.Payments)
+            {
+                if (payment.Method == "corporate_credit" && payment.Status == "successful")
+                {
+                    var corp = await _context.CompanyMembers
+                        .Include(m => m.Company)
+                        .FirstOrDefaultAsync(m => m.UserId == order.CustomerId && m.Status == "active");
+                    if (corp is not null)
+                    {
+                        corp.UsedCredit = Math.Max(0, corp.UsedCredit - payment.Amount);
+                        corp.Company.UsedCredit = Math.Max(0, corp.Company.UsedCredit - payment.Amount);
+                    }
+                    payment.Status = "refunded";
+                }
+                else if (payment.Status == "pending")
+                {
+                    payment.Status = "cancelled";
+                }
+            }
 
             await _context.SaveChangesAsync();
             return Ok(MyOrderResponse.From(order));
@@ -254,12 +271,27 @@ public class MyOrdersController : ControllerBase
             if (order.Payments.Any(p => p.Status is "pending" or "successful"))
                 return BadRequest(new { message = "This order already has a payment." });
 
-            // TODO: corporate accounts (company, membership, credit limit) are not in the API yet.
+            CompanyMember? corporateMembership = null;
             if (request.Method == "corporate_credit")
-                return BadRequest(new { message = "Company billing is not available yet." });
+            {
+                corporateMembership = await _context.CompanyMembers
+                    .Include(m => m.Company)
+                    .FirstOrDefaultAsync(m => m.UserId == order.CustomerId && m.Status == "active" && m.Company.IsActive);
+
+                if (corporateMembership is null)
+                    return BadRequest(new { message = "You do not have an active corporate account." });
+
+                var availableCredit = corporateMembership.CreditLimit - corporateMembership.UsedCredit;
+                if (availableCredit < order.TotalAmount)
+                    return BadRequest(new { message = $"Insufficient corporate credit limit. Available: {availableCredit:N2} BDT." });
+
+                corporateMembership.UsedCredit += order.TotalAmount;
+                corporateMembership.Company.UsedCredit += order.TotalAmount;
+            }
 
             var simulate = _config.GetValue("Payments:SimulateGateway", false);
-            var instant = request.Method is "card" or "mobile_banking" && simulate;
+            var isCorporate = request.Method == "corporate_credit";
+            var instant = (request.Method is "card" or "mobile_banking" && simulate) || isCorporate;
             var payment = new Payment
             {
                 Amount = order.TotalAmount,
@@ -268,7 +300,7 @@ public class MyOrdersController : ControllerBase
                 IdempotencyKey = request.IdempotencyKey,
                 Status = instant ? "successful" : "pending",
                 PaidAt = instant ? DateTime.UtcNow : null,
-                ProviderReference = instant ? $"SIM-{Guid.NewGuid().ToString("N")[..10].ToUpper()}" : null
+                ProviderReference = isCorporate ? $"CORP-{corporateMembership!.Company.Code}" : (instant ? $"SIM-{Guid.NewGuid().ToString("N")[..10].ToUpper()}" : null)
             };
             order.Payments.Add(payment);
 

@@ -4,7 +4,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
-import '../../models/corporate.dart';
 import '../../models/user.dart';
 
 final authControllerProvider = NotifierProvider<AuthController, AppUser?>(AuthController.new);
@@ -37,18 +36,6 @@ class AuthController extends Notifier<AppUser?> {
   Future<void> register(RegisterRequest request) async {
     final session = await ref.read(authRepositoryProvider).register(request);
     _useMockDataFor(session.user);
-
-    // TODO(api): the API stores only the account type for now. Until company
-    // tables exist, a corporate sign-up shows as a pending (mock) company link.
-    if (request.accountType == AccountType.corporate && request.companyName != null) {
-      final db = ref.read(mockDatabaseProvider);
-      db.myAffiliations.add(CorporateAffiliation(
-        id: db.newId(),
-        companyName: request.companyName!,
-        role: CorporateRole.manager,
-        status: AffiliationStatus.pending,
-      ));
-    }
     await _start(session);
   }
 
@@ -65,7 +52,6 @@ class AuthController extends Notifier<AppUser?> {
     state = session.user;
   }
 
-  // TODO(api): remove once vehicles/orders/payments/corporate use the API.
-  // Those are still mocked and keep their data per user id.
+  // Keeps mock data scoped per user id when MOCK_API=true.
   void _useMockDataFor(AppUser user) => ref.read(mockDatabaseProvider).currentUserId = user.id;
 }

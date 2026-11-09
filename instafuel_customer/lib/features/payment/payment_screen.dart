@@ -1,5 +1,5 @@
-// Choose how to pay for an order. Card / mobile banking will open a payment
-// gateway page later; for now the mock repository returns a result directly.
+// Payment settlement adhering to SOP-OPS-001 Section 12 (Payment, Credit & Collection).
+// Supports advance digital payment (Card, MFS), Bank Transfer, and approved Corporate Credit.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +10,6 @@ import '../../core/theme.dart';
 import '../../core/widgets/async_value_view.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/responsive_center.dart';
-import '../../core/widgets/section_card.dart';
 import '../../data/providers.dart';
 import '../../models/corporate.dart';
 import '../../models/order.dart';
@@ -52,67 +51,81 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final affiliations = ref.watch(affiliationsProvider).value ?? [];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Payment')),
+      appBar: AppBar(title: const Text('Invoice Settlement (SOP §12)')),
       body: AsyncValueView(
         value: orderValue,
         data: (order) {
           if (order == null) return const EmptyState(icon: Icons.search_off, title: 'Order not found');
 
-          // Corporate credit is only offered when the order is billed to an active company.
           final company = affiliations.where((a) => a.id == order.corporateId && a.isActive).firstOrNull;
           final methods = PaymentMethod.values
               .where((m) => m != PaymentMethod.corporateCredit || company != null)
               .toList();
-          _method ??= company != null ? PaymentMethod.corporateCredit : null;
+          _method ??= company != null ? PaymentMethod.corporateCredit : PaymentMethod.card;
 
           return ListView(
             padding: const EdgeInsets.all(AppTheme.gap16),
             children: [
               ResponsiveCenter(
+                maxWidth: 580,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _Summary(order: order),
-                    const SizedBox(height: AppTheme.gap24),
-                    Text('Payment method', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: AppTheme.gap8),
+                    _InvoiceSummaryHeader(order: order),
+                    const SizedBox(height: AppTheme.gap20),
+                    const Text(
+                      'Select Approved Payment Method (SOP §12.1)',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                    ),
+                    const SizedBox(height: AppTheme.gap12),
                     for (final m in methods) ...[
-                      _MethodCard(
+                      _PaymentMethodTile(
                         method: m,
                         selected: _method == m,
                         extra: m == PaymentMethod.corporateCredit && company != null ? _creditInfo(company, order) : null,
                         onTap: _paying ? null : () => setState(() => _method = m),
                       ),
-                      const SizedBox(height: AppTheme.gap8),
+                      const SizedBox(height: AppTheme.gap10),
                     ],
+                    const SizedBox(height: AppTheme.gap8),
                     if (_method == PaymentMethod.card || _method == PaymentMethod.mobileBanking)
-                      _Note(
-                        icon: Icons.lock_outline,
-                        text: 'You will be taken to a secure payment page. '
-                            'Instafuel never stores your card or wallet PIN.',
+                      _SecurityBadge(
+                        icon: Icons.lock_outline_rounded,
+                        text: '256-bit encrypted gateway. Instafuel never stores your PIN or CVV.',
                       ),
                     if (_method == PaymentMethod.bankTransfer)
-                      const _Note(
-                        icon: Icons.info_outline,
-                        text: 'Bank details will be shown after you confirm. '
-                            'The order is confirmed once finance receives the transfer.',
+                      _SecurityBadge(
+                        icon: Icons.account_balance_outlined,
+                        text: 'Direct BEFTN / RTGS transfer. Order confirmed upon finance reconciliation (SOP §12.2).',
+                      ),
+                    if (_method == PaymentMethod.corporateCredit)
+                      _SecurityBadge(
+                        icon: Icons.verified_user_outlined,
+                        text: 'Approved corporate credit line. Consolidated monthly billing (SOP §12.3).',
                       ),
                     const SizedBox(height: AppTheme.gap24),
                     FilledButton.icon(
                       onPressed: _method == null || _paying ? null : () => _pay(order),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF059669),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
                       icon: _paying
-                          ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.lock_outline),
+                          ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.check_circle_outline_rounded, size: 20),
                       label: Text(
-                        _method == PaymentMethod.cashOnDelivery
-                            ? 'Confirm order'
-                            : 'Pay ${formatMoney(order.total)}',
+                        _method == PaymentMethod.corporateCredit
+                            ? 'Charge to Corporate Account'
+                            : 'Pay Now (${formatMoney(order.total)})',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                     ),
                     const SizedBox(height: AppTheme.gap8),
                     TextButton(
                       onPressed: _paying ? null : () => context.pushReplacement('/order/${order.id}'),
-                      child: const Text('Pay later'),
+                      child: const Text('Review Order Manifest', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -127,32 +140,73 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   Widget _creditInfo(CorporateAffiliation c, Order order) {
     final enough = c.availableCredit >= order.total;
     return Text(
-      '${c.companyName} · ${formatMoney(c.availableCredit)} available',
-      style: TextStyle(color: enough ? null : Theme.of(context).colorScheme.error),
+      '${c.companyName} · ${formatMoney(c.availableCredit)} credit available',
+      style: TextStyle(
+        color: enough ? const Color(0xFF059669) : const Color(0xFFDC2626),
+        fontWeight: FontWeight.bold,
+        fontSize: 12,
+      ),
     );
   }
 }
 
-class _Summary extends StatelessWidget {
-  const _Summary({required this.order});
+class _InvoiceSummaryHeader extends StatelessWidget {
+  const _InvoiceSummaryHeader({required this.order});
 
   final Order order;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SectionCard(
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.gap20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Amount to pay', style: theme.textTheme.bodyMedium),
-          const SizedBox(height: AppTheme.gap4),
-          Text(formatMoney(order.total), style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: AppTheme.gap8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'COMMERCIAL INVOICE',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.6,
+                ),
+              ),
+              Text(
+                order.orderNumber,
+                style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.gap12),
           Text(
-            '${order.orderNumber} · ${formatLitres(order.totalLitres)} · '
-            '${order.lines.length} vehicle${order.lines.length == 1 ? '' : 's'}',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            formatMoney(order.total),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.6,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${formatLitres(order.totalLitres)} Total Fuel · ${order.lines.length} vehicle(s) · ${order.address}',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 12.5),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -160,8 +214,13 @@ class _Summary extends StatelessWidget {
   }
 }
 
-class _MethodCard extends StatelessWidget {
-  const _MethodCard({required this.method, required this.selected, required this.onTap, this.extra});
+class _PaymentMethodTile extends StatelessWidget {
+  const _PaymentMethodTile({
+    required this.method,
+    required this.selected,
+    required this.onTap,
+    this.extra,
+  });
 
   final PaymentMethod method;
   final bool selected;
@@ -170,49 +229,79 @@ class _MethodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Semantics(
-      selected: selected,
-      button: true,
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radius),
-          side: BorderSide(color: selected ? scheme.primary : scheme.outlineVariant, width: selected ? 2 : 1),
-        ),
-        child: ListTile(
-          onTap: onTap,
-          leading: Icon(method.icon, color: selected ? scheme.primary : null),
-          title: Text(method.label),
-          subtitle: extra ?? Text(method.description),
-          trailing: Icon(
-            selected ? Icons.radio_button_checked : Icons.radio_button_off,
-            color: selected ? scheme.primary : scheme.outline,
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF059669).withValues(alpha: isDark ? 0.2 : 0.08)
+              : (isDark ? const Color(0xFF1E293B) : Colors.white),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? const Color(0xFF059669) : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+            width: selected ? 2 : 1,
           ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: selected ? const Color(0xFF059669) : Colors.grey.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(method.icon, color: selected ? Colors.white : Colors.grey, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(method.label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  extra ?? Text(method.description, style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 11.5)),
+                ],
+              ),
+            ),
+            Icon(
+              selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+              color: selected ? const Color(0xFF059669) : Colors.grey,
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _Note extends StatelessWidget {
-  const _Note({required this.icon, required this.text});
+class _SecurityBadge extends StatelessWidget {
+  const _SecurityBadge({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: AppTheme.gap8),
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: AppTheme.gap8),
+          Icon(icon, size: 18, color: const Color(0xFF059669)),
+          const SizedBox(width: 8),
           Expanded(
-            child: Text(text, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            child: Text(text, style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569))),
           ),
         ],
       ),

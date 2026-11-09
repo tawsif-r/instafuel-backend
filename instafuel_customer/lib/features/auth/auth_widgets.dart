@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
 
-/// Logo + title block shared by login and register.
+/// Logo + title block shared by login and register (FuelBuddy / CAFU style).
 class AuthHeader extends StatelessWidget {
   const AuthHeader({super.key, required this.title, required this.subtitle});
 
@@ -12,22 +12,82 @@ class AuthHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(AppTheme.gap12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(AppTheme.radius),
-          ),
-          child: Icon(Icons.local_gas_station, size: 32, color: theme.colorScheme.onPrimaryContainer),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF059669), Color(0xFF10B981)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF059669).withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.local_gas_station_rounded, size: 28, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            const Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'InstaFuel',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  SizedBox(width: double.infinity, child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'LICENSED FUEL OPERATOR',
+                      style: TextStyle(
+                        color: Color(0xFF059669),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  )),
+                ],
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: AppTheme.gap24),
-        Text(title, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
+        Text(
+          title,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.6,
+          ),
+        ),
         const SizedBox(height: AppTheme.gap8),
-        Text(subtitle, style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-        const SizedBox(height: AppTheme.gap32),
+        Text(
+          subtitle,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: AppTheme.gap28),
       ],
     );
   }
@@ -67,9 +127,8 @@ class _PasswordFieldState extends State<PasswordField> {
       autofillHints: const [AutofillHints.password],
       decoration: InputDecoration(
         labelText: widget.label,
-        prefixIcon: const Icon(Icons.lock_outline),
+        prefixIcon: const Icon(Icons.lock_outline_rounded),
         suffixIcon: IconButton(
-          tooltip: _hidden ? 'Show password' : 'Hide password',
           icon: Icon(_hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined),
           onPressed: () => setState(() => _hidden = !_hidden),
         ),
@@ -77,23 +136,4 @@ class _PasswordFieldState extends State<PasswordField> {
       validator: widget.validator,
     );
   }
-}
-
-// Simple form validators shared by the auth screens.
-String? requiredField(String? v, String name) => (v == null || v.trim().isEmpty) ? '$name is required' : null;
-
-String? validateEmail(String? v) {
-  if (v == null || v.trim().isEmpty) return 'Email is required';
-  return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim()) ? null : 'Enter a valid email';
-}
-
-// Bangladeshi mobile number: 11 digits starting with 01.
-String? validatePhone(String? v) {
-  if (v == null || v.trim().isEmpty) return 'Phone is required';
-  return RegExp(r'^01\d{9}$').hasMatch(v.trim()) ? null : 'Enter an 11-digit number starting with 01';
-}
-
-String? validatePassword(String? v) {
-  if (v == null || v.isEmpty) return 'Password is required';
-  return v.length < 8 ? 'Use at least 8 characters' : null;
 }

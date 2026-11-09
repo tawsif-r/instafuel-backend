@@ -2,8 +2,9 @@
 
 Flutter app for customers: register / log in, register vehicles, order fuel for one or more vehicles, pay, and track deliveries.
 
-> **Auth, vehicles, orders and payments use the real API** (`Instafuel.Api`, JWT). Corporate accounts
-> are still mock data kept in memory. Full setup steps are in the [root README](../README.md).
+> **Everything talks to the real API** (`Instafuel.Api`, JWT): auth, vehicles, orders, payments
+> and corporate accounts. Run with `--dart-define=MOCK_API=true` for a fully offline demo.
+> Full setup steps are in the [root README](../README.md).
 
 ## Run
 
@@ -43,7 +44,7 @@ lib/
 │   ├── repositories.dart   interfaces the UI talks to
 │   ├── providers.dart      picks the implementation for each repository  <-- swap point
 │   ├── session_store.dart  saved login (JWT + user) in flutter_secure_storage
-│   ├── api/                ApiClient (http + bearer token + error messages), ApiAuth/Vehicle/Order/PaymentRepository
+│   ├── api/                ApiClient (http + bearer token + error messages), ApiAuth/Vehicle/Order/Payment/CorporateRepository
 │   └── mock/               in-memory implementations + seed data
 └── features/            one folder per area: auth, dashboard, orders, payment,
                          vehicles, corporate, settings (screens + Riverpod controllers)
@@ -60,24 +61,22 @@ lib/
 - `AuthController` saves the session with `SessionStore` (Keystore-backed on Android). `main()` reads it before `runApp`; an expired session means logged out.
 - API errors (`{ message }` or validation `errors`) and network failures become `AppException`s with a readable message, shown on the form.
 - A 401 on any call with a token (expired/invalid) logs the user out (`ApiClient.onUnauthorized`).
-- While other features are mocked, `AuthController` tells the mock database which user is logged in (marked `TODO(api)`).
+- While `MOCK_API=true`, `AuthController` tells the mock database which user is logged in so mock data is scoped per user.
 
 ## Connecting more of the API
 
-Only corporate is left. When its endpoints exist:
+Done — auth, vehicles, orders, payments and corporate all use the API. New features follow the
+same pattern:
 
-1. Write `ApiCorporateRepository implements CorporateRepository` in `lib/data/api/`, using `ApiClient` (see `ApiOrderRepository` for the pattern).
-2. Change the provider in `lib/data/providers.dart`:
-   ```dart
-   final corporateRepositoryProvider = Provider<CorporateRepository>((ref) => ApiCorporateRepository(ref.watch(apiClientProvider)));
-   ```
+1. Write an `Api*Repository implements <Interface>` in `lib/data/api/`, using `ApiClient` (see `ApiOrderRepository` for the pattern).
+2. Switch the provider in `lib/data/providers.dart`.
+
 Screens and controllers don't change.
 
 ## Placeholders (not wired yet)
 
 - Vehicle documents (registration PDF, fitness PDF, number plate photo): "Attach" only fills a fake file name, which the API stores. Add `file_picker` / `image_picker` + upload when storage is ready.
 - Vehicle verification: on the dev API, a vehicle with all 3 documents is verified straight away (`CustomerVehicles:AutoVerifyWhenComplete`). Otherwise it stays pending until an admin reviews it.
-- Card / mobile banking: will redirect to a payment gateway. The dev API (`Payments:SimulateGateway`) and the mock mark them paid straight away. Corporate credit is rejected by the API until company accounts exist.
+- Card / mobile banking: will redirect to a payment gateway. The dev API (`Payments:SimulateGateway`) and the mock mark them paid straight away. Corporate credit is real: it requires an active company membership with available credit (`api/me/corporate`).
 - Notifications, call driver, edit profile, saved addresses, password reset: show "coming soon".
-- Corporate sign-up: the API stores the account type only; the company link shows as a pending mock affiliation.
-- Demo shortcuts: company codes starting with `DEMO` are approved instantly (mock vehicles with all 3 documents are also verified instantly in `MOCK_API` mode).
+- Demo shortcuts: company codes starting with `DEMO` (or `NORTHWIND`) are approved instantly with a 25,000 BDT credit line.

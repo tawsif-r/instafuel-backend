@@ -26,6 +26,8 @@ class ApiAuthRepository implements AuthRepository {
       'phone': request.phone.trim(),
       'password': request.password,
       'accountType': request.accountType.name,
+      // The API keeps the company name with the user record.
+      'companyName': request.companyName,
     });
     return _start(json);
   }

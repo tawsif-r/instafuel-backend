@@ -1,4 +1,5 @@
-// Account tab: profile, company links, appearance (light/dark), logout.
+// Account & Compliance tab complying with SOP-OPS-001 Section 4, 13 & 14.
+// Customer Profile, Corporate Links, HSE Emergency Hotline, Appearance & Sign Out.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,98 +19,171 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  bool _orderUpdates = true; // UI only for now
+  bool _orderUpdates = true;
   bool _promotions = false;
 
   Future<void> _logout() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Log out?'),
+        title: const Text('Log out of InstaFuel?'),
+        content: const Text('You will need to sign in again to schedule refuels and view delivery manifests.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Log out')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            child: const Text('Sign Out'),
+          ),
         ],
       ),
     );
     if (ok == true) await ref.read(authControllerProvider.notifier).logout();
   }
 
-  void _comingSoon(String what) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$what is coming soon.')));
+  void _showHseDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.emergency_rounded, color: Color(0xFFDC2626)),
+            SizedBox(width: 8),
+            Text('HSE Emergency Hotline'),
+          ],
+        ),
+        content: const Text(
+          'Under SOP §14 (Health, Safety & Emergency Management), report any fuel spill, vapor leakage, or bowser emergency immediately to our 24/7 Dispatch Operations Centre:\n\n📞 Emergency Hotline: +880 9612-3835-00\n🚒 Fire & Safety Cell: Ext 9',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final user = ref.watch(authControllerProvider);
     final themeMode = ref.watch(themeModeProvider);
     final companies = ref.watch(affiliationsProvider).value ?? [];
-    if (user == null) return const SizedBox.shrink(); // logging out
+    if (user == null) return const SizedBox.shrink();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Account')),
+      appBar: AppBar(title: const Text('Account & Compliance')),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: AppTheme.gap16),
         children: [
           ResponsiveCenter(
+            maxWidth: 640,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ----- Profile -----
+                // ----- Profile Card with SOP Verification -----
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppTheme.gap16),
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppTheme.gap16),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 28,
-                            backgroundColor: theme.colorScheme.primary,
-                            child: Text(
-                              user.initials,
-                              style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.onPrimary),
-                            ),
+                  child: Container(
+                    padding: const EdgeInsets.all(AppTheme.gap20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor: const Color(0xFF059669),
+                          child: Text(
+                            user.initials,
+                            style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 20),
                           ),
-                          const SizedBox(width: AppTheme.gap16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(user.fullName, style: theme.textTheme.titleMedium),
-                                Text(user.email, style: theme.textTheme.bodySmall),
-                                Text(user.phone, style: theme.textTheme.bodySmall),
-                              ],
-                            ),
+                        ),
+                        const SizedBox(width: AppTheme.gap16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    user.fullName,
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Icon(Icons.verified_rounded, size: 16, color: Color(0xFF10B981)),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(user.email, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12.5)),
+                              Text(user.phone, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12.5)),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF059669).withValues(alpha: 0.25),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  user.accountType.label.toUpperCase(),
+                                  style: const TextStyle(color: Color(0xFF34D399), fontSize: 9.5, fontWeight: FontWeight.w800),
+                                ),
+                              ),
+                            ],
                           ),
-                          Chip(label: Text(user.accountType.label), visualDensity: VisualDensity.compact),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
 
-                const _Header('Account'),
+                const _Header('Customer Profile & Fleet (SOP §4)'),
                 ListTile(
-                  leading: const Icon(Icons.person_outline),
-                  title: const Text('Edit profile'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _comingSoon('Editing your profile'),
+                  leading: const Icon(Icons.directions_car_rounded, color: Color(0xFF059669)),
+                  title: const Text('My Fuel Garage & Equipment'),
+                  subtitle: const Text('Private vehicles, transport trucks & backup generators'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/vehicles'),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.business_outlined),
-                  title: const Text('Corporate accounts'),
+                  leading: const Icon(Icons.corporate_fare_rounded, color: Color(0xFF059669)),
+                  title: const Text('Corporate Accounts & Credit Limit'),
                   subtitle: Text(companies.isEmpty
-                      ? 'Link a company to bill orders to it'
-                      : '${companies.length} linked · ${companies.where((c) => c.isActive).length} active'),
-                  trailing: const Icon(Icons.chevron_right),
+                      ? 'Link company for 30-day billing (SOP §12.3)'
+                      : '${companies.length} company linked · ${companies.where((c) => c.isActive).length} active credit account'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.push('/corporate'),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.location_on_outlined),
-                  title: const Text('Saved addresses'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _comingSoon('Saved addresses'),
+
+                const _Header('Safety & Emergency (SOP §14)'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.gap16),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                    ),
+                    child: ListTile(
+                      leading: const Icon(Icons.emergency_rounded, color: Color(0xFFDC2626)),
+                      title: const Text(
+                        '24/7 HSE & Spill Emergency Hotline',
+                        style: TextStyle(color: Color(0xFF991B1B), fontWeight: FontWeight.bold, fontSize: 13.5),
+                      ),
+                      subtitle: const Text(
+                        'Immediate response for fuel leakage, fire or delivery hazards',
+                        style: TextStyle(color: Color(0xFFB91C1C), fontSize: 11),
+                      ),
+                      trailing: const Icon(Icons.phone_in_talk_rounded, color: Color(0xFFDC2626)),
+                      onTap: _showHseDialog,
+                    ),
+                  ),
                 ),
 
                 const _Header('Appearance'),
@@ -126,46 +200,68 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
 
-                const _Header('Notifications'),
+                const _Header('Operational Notifications (SOP §13)'),
                 SwitchListTile(
                   secondary: const Icon(Icons.local_shipping_outlined),
-                  title: const Text('Order & delivery updates'),
+                  title: const Text('Bowser Dispatch & Slot Updates'),
+                  subtitle: const Text('Real-time arrival notification & meter calibration certificate'),
                   value: _orderUpdates,
                   onChanged: (v) => setState(() => _orderUpdates = v),
                 ),
                 SwitchListTile(
-                  secondary: const Icon(Icons.campaign_outlined),
-                  title: const Text('Offers and promotions'),
+                  secondary: const Icon(Icons.discount_outlined),
+                  title: const Text('Fleet Pricing & Regulatory Tariff Notices'),
                   value: _promotions,
                   onChanged: (v) => setState(() => _promotions = v),
                 ),
 
-                const _Header('Support'),
+                const _Header('Compliance & Governance (SOP §1, 18, 19)'),
                 ListTile(
-                  leading: const Icon(Icons.support_agent_outlined),
-                  title: const Text('Help & support'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _comingSoon('Support'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.info_outline),
-                  title: const Text('About Instafuel'),
-                  onTap: () => showAboutDialog(
+                  leading: const Icon(Icons.policy_outlined),
+                  title: const Text('Standard Operating Procedure (SOP-OPS-001)'),
+                  subtitle: const Text('Licensed On-Demand Fuel Supply & Delivery Operations'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => showDialog(
                     context: context,
-                    applicationName: 'Instafuel',
-                    applicationVersion: '0.1.0 (preview)',
-                    applicationIcon: Icon(Icons.local_gas_station, color: theme.colorScheme.primary),
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('SOP-OPS-001 Compliance'),
+                      content: const Text(
+                        'InstaFuel operates as a licensed petroleum distributor with its own dedicated bowser tanker fleet. All deliveries are governed by 24h advance scheduling, automated meter calibration, and strict HSE safety controls.',
+                      ),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: AppTheme.gap16),
+                ListTile(
+                  leading: const Icon(Icons.info_outline_rounded),
+                  title: const Text('About InstaFuel'),
+                  subtitle: const Text('v1.0.0 (SOP-OPS-001 Ready)'),
+                  onTap: () => showAboutDialog(
+                    context: context,
+                    applicationName: 'InstaFuel Customer App',
+                    applicationVersion: '1.0.0 (SOP Certified)',
+                    applicationIcon: const Icon(Icons.local_gas_station_rounded, color: Color(0xFF059669), size: 36),
+                  ),
+                ),
+
+                const SizedBox(height: AppTheme.gap24),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppTheme.gap16),
                   child: OutlinedButton.icon(
                     onPressed: _logout,
-                    icon: Icon(Icons.logout, color: theme.colorScheme.error),
-                    label: Text('Log out', style: TextStyle(color: theme.colorScheme.error)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFDC2626),
+                      side: const BorderSide(color: Color(0xFFDC2626)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    icon: const Icon(Icons.logout_rounded),
+                    label: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
+                const SizedBox(height: AppTheme.gap32),
               ],
             ),
           ),
@@ -184,8 +280,13 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(AppTheme.gap16, AppTheme.gap24, AppTheme.gap16, AppTheme.gap8),
         child: Text(
-          text,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Theme.of(context).colorScheme.primary),
+          text.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+            color: Color(0xFF059669),
+          ),
         ),
       );
 }

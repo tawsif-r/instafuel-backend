@@ -9,7 +9,8 @@ public record RegisterRequest(
     [Required, EmailAddress, MaxLength(255)] string Email,
     [Required, MaxLength(20)] string Phone,
     [Required, MinLength(8, ErrorMessage = "Password must be at least 8 characters."), MaxLength(100)] string Password,
-    [AllowedValues("individual", "corporate")] string AccountType = "individual");
+    [AllowedValues("individual", "corporate")] string AccountType = "individual",
+    [MaxLength(150)] string? CompanyName = null);
 
 // Identifier is an email or a phone number.
 public record LoginRequest(

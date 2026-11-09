@@ -19,33 +19,49 @@ class OrderTile extends StatelessWidget {
 
     return Card(
       clipBehavior: Clip.antiAlias,
+      elevation: 1,
       child: InkWell(
         onTap: () => context.push('/order/${order.id}'),
         child: Padding(
           padding: const EdgeInsets.all(AppTheme.gap16),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              CircleAvatar(
-                backgroundColor: theme.colorScheme.primaryContainer,
-                child: Icon(Icons.local_gas_station_outlined, color: theme.colorScheme.onPrimaryContainer),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF059669).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.local_gas_station_rounded, color: Color(0xFF059669), size: 22),
               ),
-              const SizedBox(width: AppTheme.gap16),
+              const SizedBox(width: AppTheme.gap12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${order.orderNumber} · $vehicles', style: theme.textTheme.titleSmall),
-                    const SizedBox(height: 2),
+                    Text(
+                      '${order.orderNumber} · $vehicles',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                    ),
+                    const SizedBox(height: 3),
                     Text(
                       '${formatLitres(order.totalLitres)} · ${formatDate(order.scheduledAt)}, ${formatTime(order.scheduledAt)}',
                       style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
-                    const SizedBox(height: AppTheme.gap8),
+                    const SizedBox(height: 6),
                     order.isActive ? StatusChip.delivery(order.deliveryStatus) : StatusChip.order(order.status),
                   ],
                 ),
               ),
-              Text(formatMoney(order.total), style: theme.textTheme.titleSmall),
+              Text(
+                formatMoney(order.total),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                ),
+              ),
             ],
           ),
         ),

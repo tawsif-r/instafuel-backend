@@ -1,9 +1,8 @@
 // Contracts between the UI and the data source.
 //
-// Screens/controllers only know these interfaces. Auth, vehicles, orders and
-// payments use the real API (data/api/); corporate is still an in-memory Mock*
-// class (data/mock/). When its API endpoints exist, add an Api* class that implements
-// the same interface and switch it in data/providers.dart. Nothing in features/ needs to change.
+// Screens/controllers only know these interfaces. Auth, vehicles, orders,
+// payments and corporate use the real API (data/api/) when MOCK_API is false.
+// providers.dart is the single place to configure them. Nothing in features/ needs to change.
 
 import '../models/corporate.dart';
 import '../models/fuel.dart';
