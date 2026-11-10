@@ -1,10 +1,12 @@
 using Instafuel.Api.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace Instafuel.Api.Controllers;
 
 [ApiController]
+[Authorize(Roles = "admin")]
 [Route("api/[controller]")]
 public class TestsController : ControllerBase
 {

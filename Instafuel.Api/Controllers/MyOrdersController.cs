@@ -217,19 +217,37 @@ public class MyOrdersController : ControllerBase
 
             // Nothing was collected yet for cash/bank transfer, so drop those.
             // Corporate credit payments restore the used credit limit upon cancellation.
+            // For any successful payment (Card, Mobile Banking, Corporate Credit), create a Refund record.
             foreach (var payment in order.Payments)
             {
-                if (payment.Method == "corporate_credit" && payment.Status == "successful")
+                if (payment.Status == "successful")
                 {
-                    var corp = await _context.CompanyMembers
-                        .Include(m => m.Company)
-                        .FirstOrDefaultAsync(m => m.UserId == order.CustomerId && m.Status == "active");
-                    if (corp is not null)
+                    if (payment.Method == "corporate_credit")
                     {
-                        corp.UsedCredit = Math.Max(0, corp.UsedCredit - payment.Amount);
-                        corp.Company.UsedCredit = Math.Max(0, corp.Company.UsedCredit - payment.Amount);
+                        var corp = await _context.CompanyMembers
+                            .Include(m => m.Company)
+                            .FirstOrDefaultAsync(m => m.UserId == order.CustomerId && m.Status == "active");
+                        if (corp is not null)
+                        {
+                            corp.UsedCredit = Math.Max(0, corp.UsedCredit - payment.Amount);
+                            corp.Company.UsedCredit = Math.Max(0, corp.Company.UsedCredit - payment.Amount);
+                        }
                     }
+
                     payment.Status = "refunded";
+
+                    var refund = new Refund
+                    {
+                        PaymentId = payment.Id,
+                        Amount = payment.Amount,
+                        Status = "successful",
+                        ProviderReference = payment.Method == "corporate_credit"
+                            ? $"REF-CORP-{Guid.NewGuid().ToString("N")[..8].ToUpper()}"
+                            : $"REF-{Guid.NewGuid().ToString("N")[..8].ToUpper()}",
+                        CreatedAt = now
+                    };
+                    _context.Refunds.Add(refund);
+                    payment.Refunds.Add(refund);
                 }
                 else if (payment.Status == "pending")
                 {
@@ -330,7 +348,7 @@ public class MyOrdersController : ControllerBase
             .Include(o => o.SupplierOrders).ThenInclude(s => s.Deliveries).ThenInclude(d => d.Driver!).ThenInclude(d => d.User)
             .Include(o => o.SupplierOrders).ThenInclude(s => s.Deliveries).ThenInclude(d => d.Vehicle)
             .Include(o => o.SupplierOrders).ThenInclude(s => s.Deliveries).ThenInclude(d => d.StatusHistory)
-            .Include(o => o.Payments)
+            .Include(o => o.Payments).ThenInclude(p => p.Refunds)
             .AsSplitQuery()
             .Where(o => o.CustomerId == userId);
     }
@@ -340,11 +358,23 @@ public class MyOrdersController : ControllerBase
     private record PricedLine(CustomerVehicle Vehicle, SupplierOffer Offer, string FuelType, decimal Quantity, decimal LineTotal);
 
     // Checks the lines (own verified vehicles, each once, fuel available) and prices them.
+    // Enforces the 20-litre minimum total order volume per SOP §5.4.
     // Returns an error message that is safe to show the customer when something is wrong.
     private async Task<(List<PricedLine> Lines, string? Error)> PriceLines(List<OrderLineRequest> requestLines)
     {
+        if (requestLines.Count == 0)
+            return ([], "At least one vehicle line is required.");
+
         if (requestLines.Select(l => l.CustomerVehicleId).Distinct().Count() != requestLines.Count)
             return ([], "Each vehicle can appear only once in an order.");
+
+        if (requestLines.Any(l => l.Quantity <= 0))
+            return ([], "Quantity must be greater than zero.");
+
+        var minLitres = _config.GetValue<decimal>("Orders:MinOrderLitres", 20.0m);
+        var totalLitres = requestLines.Sum(l => l.Quantity);
+        if (totalLitres < minLitres)
+            return ([], $"Minimum total order volume is {minLitres:0.#} litres (SOP §5.4). Current order: {totalLitres:0.#} litres.");
 
         var userId = User.GetUserId();
         var vehicleIds = requestLines.Select(l => l.CustomerVehicleId).ToList();

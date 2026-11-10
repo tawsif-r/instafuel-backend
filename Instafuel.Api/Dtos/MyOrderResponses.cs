@@ -10,7 +10,7 @@ public record MyOrderResponse(
     string OrderNumber,
     string Status,
     string DeliveryStatus,
-    string PaymentStatus,  // unpaid | pending | paid | failed
+    string PaymentStatus,  // unpaid | pending | paid | refunded | failed
     string? PaymentMethod, // method of the latest payment
     DateTime RequestedDeliveryAt,
     DateTime CreatedAt,
@@ -22,7 +22,8 @@ public record MyOrderResponse(
     string? DriverName,
     string? TruckRegistration,
     List<MyOrderLineResponse> Lines,
-    List<OrderEventResponse> Timeline)
+    List<OrderEventResponse> Timeline,
+    RefundSummaryResponse? Refund = null)
 {
     private static readonly Dictionary<string, string> MethodLabels = new()
     {
@@ -30,6 +31,7 @@ public record MyOrderResponse(
         ["card"] = "Card",
         ["mobile_banking"] = "Mobile banking",
         ["bank_transfer"] = "Bank transfer",
+        ["corporate_credit"] = "Corporate credit",
     };
 
     private static readonly Dictionary<string, string> DeliveryEvents = new()
@@ -46,6 +48,7 @@ public record MyOrderResponse(
     {
         var delivery = order.SupplierOrders.SelectMany(s => s.Deliveries).MaxBy(d => d.CreatedAt);
         var payment = order.Payments.MaxBy(p => p.CreatedAt);
+        var latestRefund = order.Payments.SelectMany(p => p.Refunds).MaxBy(r => r.CreatedAt);
 
         var deliveryStatus = order.Status == "cancelled" ? "cancelled" : delivery?.Status ?? "pending";
         var paymentStatus = payment?.Status switch
@@ -53,6 +56,7 @@ public record MyOrderResponse(
             null or "cancelled" => "unpaid",
             "pending" => "pending",
             "successful" => "paid",
+            "refunded" => "refunded",
             _ => "failed",
         };
 
@@ -63,9 +67,14 @@ public record MyOrderResponse(
             timeline.Add(p.Status switch
             {
                 "successful" => new($"Payment received ({label})", p.PaidAt ?? p.CreatedAt),
+                "refunded" => new($"Payment refunded ({label})", p.PaidAt ?? p.CreatedAt),
                 "pending" or "cancelled" => new($"Payment on delivery ({label})", p.CreatedAt),
                 _ => new("Payment failed", p.CreatedAt),
             });
+            foreach (var r in p.Refunds)
+            {
+                timeline.Add(new($"Refund processed ({r.Status})", r.CreatedAt));
+            }
         }
         foreach (var h in order.SupplierOrders.SelectMany(s => s.Deliveries).SelectMany(d => d.StatusHistory))
         {
@@ -74,6 +83,15 @@ public record MyOrderResponse(
         }
         if (order.Status == "cancelled")
             timeline.Add(new("Order cancelled", order.UpdatedAt));
+
+        var refundSummary = latestRefund is not null
+            ? new RefundSummaryResponse(
+                latestRefund.Id,
+                latestRefund.Amount,
+                latestRefund.Status,
+                latestRefund.ProviderReference,
+                latestRefund.CreatedAt)
+            : null;
 
         return new MyOrderResponse(
             order.Id,
@@ -100,7 +118,8 @@ public record MyOrderResponse(
                 i.UnitPrice,
                 i.LineTotal,
                 i.PlateVerifiedAt)).ToList(),
-            timeline.OrderBy(e => e.At).ToList());
+            timeline.OrderBy(e => e.At).ToList(),
+            refundSummary);
     }
 }
 
@@ -121,3 +140,10 @@ public record FuelProductResponse(string FuelType, decimal PricePerLitre);
 public record OrderQuoteResponse(decimal Subtotal, decimal DeliveryFee, decimal Total);
 
 public record PayOrderResponse(Guid OrderId, string Status, string Method, decimal Amount, string? Reference, string? Message);
+
+public record RefundSummaryResponse(
+    Guid Id,
+    decimal Amount,
+    string Status,
+    string? ProviderReference,
+    DateTime CreatedAt);

@@ -1,5 +1,6 @@
 using Instafuel.Api.Dtos;
 using Instafuel.Api.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,6 +20,7 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<Category>>> GetCategories()
     {
         try
@@ -35,6 +37,7 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [AllowAnonymous]
     public async Task<ActionResult<Category>> GetCategory(Guid id)
     {
         try
@@ -53,6 +56,7 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<Category>> CreateCategory(SaveCategoryRequest request)
     {
         try
@@ -81,6 +85,7 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<Category>> UpdateCategory(Guid id, SaveCategoryRequest request)
     {
         try
@@ -112,6 +117,7 @@ public class CategoriesController : ControllerBase
 
     // Soft delete: products point at categories, so we only deactivate.
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> DeactivateCategory(Guid id)
     {
         try
