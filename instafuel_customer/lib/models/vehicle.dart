@@ -39,12 +39,27 @@ enum DocumentKind {
 }
 
 class VehicleDocument {
-  const VehicleDocument({required this.kind, this.fileName});
+  const VehicleDocument({
+    required this.kind,
+    this.fileName,
+    this.hasFile = false,
+    this.contentType,
+    this.sizeBytes,
+    this.uploadedAt,
+  });
 
   final DocumentKind kind;
-  final String? fileName; // null = not uploaded yet. Later: a storage URL/id.
+  final String? fileName;    // original name the customer picked; null = not uploaded yet
+  final bool hasFile;        // true when the actual file is stored on the server
+  final String? contentType; // application/pdf, image/jpeg ...
+  final int? sizeBytes;
+  final DateTime? uploadedAt;
 
   bool get isUploaded => fileName != null;
+  bool get isImage => contentType?.startsWith('image/') ?? _imageExt.hasMatch(fileName ?? '');
+  bool get isPdf => contentType == 'application/pdf' || (fileName?.toLowerCase().endsWith('.pdf') ?? false);
+
+  static final _imageExt = RegExp(r'\.(jpe?g|png|webp|heic)$', caseSensitive: false);
 }
 
 class Vehicle {
@@ -57,6 +72,7 @@ class Vehicle {
     this.verificationStatus = VerificationStatus.pending,
     this.rejectionReason,
     this.documents = const [],
+    this.createdAt,
   });
 
   final String id;
@@ -67,6 +83,7 @@ class Vehicle {
   final VerificationStatus verificationStatus;
   final String? rejectionReason; // set by the reviewer when rejected
   final List<VehicleDocument> documents;
+  final DateTime? createdAt; // when it was registered (null for unsaved vehicles)
 
   bool get isVerified => verificationStatus == VerificationStatus.verified;
 
@@ -94,5 +111,6 @@ class Vehicle {
         verificationStatus: verificationStatus ?? this.verificationStatus,
         rejectionReason: rejectionReason,
         documents: documents ?? this.documents,
+        createdAt: createdAt,
       );
 }

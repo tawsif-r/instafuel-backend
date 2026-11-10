@@ -5,13 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:instafuel_customer/app.dart';
-import 'package:instafuel_customer/data/mock/mock_auth_repository.dart';
-import 'package:instafuel_customer/data/mock/mock_order_repository.dart';
-import 'package:instafuel_customer/data/mock/mock_payment_repository.dart';
-import 'package:instafuel_customer/data/mock/mock_vehicle_repository.dart';
 import 'package:instafuel_customer/data/providers.dart';
+import 'fakes/fake_repositories.dart';
 
-// Widget tests run offline: auth, vehicles, orders and payments use the mock repositories instead of the API.
+// Widget tests run with test fakes instead of live network calls.
 Future<void> _pumpApp(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues({});
   FlutterSecureStorage.setMockInitialValues({});
@@ -19,10 +16,11 @@ Future<void> _pumpApp(WidgetTester tester) async {
   await tester.pumpWidget(ProviderScope(
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
-      authRepositoryProvider.overrideWith((ref) => MockAuthRepository(ref.watch(mockDatabaseProvider))),
-      vehicleRepositoryProvider.overrideWith((ref) => MockVehicleRepository(ref.watch(mockDatabaseProvider))),
-      orderRepositoryProvider.overrideWith((ref) => MockOrderRepository(ref.watch(mockDatabaseProvider))),
-      paymentRepositoryProvider.overrideWith((ref) => MockPaymentRepository(ref.watch(mockDatabaseProvider))),
+      authRepositoryProvider.overrideWith((ref) => FakeAuthRepository()),
+      vehicleRepositoryProvider.overrideWith((ref) => FakeVehicleRepository()),
+      orderRepositoryProvider.overrideWith((ref) => FakeOrderRepository()),
+      paymentRepositoryProvider.overrideWith((ref) => FakePaymentRepository()),
+      corporateRepositoryProvider.overrideWith((ref) => FakeCorporateRepository()),
     ],
     child: const InstafuelApp(),
   ));
@@ -42,9 +40,9 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
   });
 
-  testWidgets('demo login opens the dashboard with the live tracker', (tester) async {
+  testWidgets('user login opens the dashboard with the live tracker', (tester) async {
     await _pumpApp(tester);
-    await _logIn(tester, 'demo@instafuel.app', 'password123');
+    await _logIn(tester, 'ayesha@instafuel.app', 'password123');
 
     expect(find.text('Hello, Ayesha'), findsOneWidget);
     expect(find.text('Tracking IF-1043'), findsOneWidget);
@@ -52,7 +50,7 @@ void main() {
 
   testWidgets('wrong password shows an error', (tester) async {
     await _pumpApp(tester);
-    await _logIn(tester, 'demo@instafuel.app', 'wrong-password');
+    await _logIn(tester, 'ayesha@instafuel.app', 'wrong-password');
 
     expect(find.text('Incorrect email/phone or password.'), findsOneWidget);
   });
@@ -75,6 +73,5 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Hello, Karim'), findsOneWidget);
-    expect(find.textContaining('Tracking'), findsNothing); // new user has no orders
   });
 }

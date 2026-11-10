@@ -1,5 +1,5 @@
-// The ONE place that decides which implementation each repository uses.
-// Auth, vehicles, orders, payments and corporate talk to Instafuel.Api (or mocks with MOCK_API=true).
+// The ONE place that configures repositories for the application.
+// All customer repositories communicate directly with Instafuel.Api over HTTP/REST.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,12 +12,6 @@ import 'api/api_corporate_repository.dart';
 import 'api/api_order_repository.dart';
 import 'api/api_payment_repository.dart';
 import 'api/api_vehicle_repository.dart';
-import 'mock/mock_auth_repository.dart';
-import 'mock/mock_corporate_repository.dart';
-import 'mock/mock_database.dart';
-import 'mock/mock_order_repository.dart';
-import 'mock/mock_payment_repository.dart';
-import 'mock/mock_vehicle_repository.dart';
 import 'repositories.dart';
 import 'session_store.dart';
 
@@ -35,25 +29,22 @@ final initialSessionProvider = Provider<AuthSession?>((ref) => null);
 /// One HTTP client for the whole app, so the token set at login is shared.
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient(baseUrl: apiBaseUrl));
 
-/// In-memory data shared by all mock repositories (resets on app restart).
-final mockDatabaseProvider = Provider<MockDatabase>((ref) => MockDatabase.seeded());
+final authRepositoryProvider = Provider<AuthRepository>(
+  (ref) => ApiAuthRepository(ref.watch(apiClientProvider)),
+);
 
-final authRepositoryProvider = Provider<AuthRepository>((ref) => useMockApi
-    ? MockAuthRepository(ref.watch(mockDatabaseProvider))
-    : ApiAuthRepository(ref.watch(apiClientProvider)));
+final vehicleRepositoryProvider = Provider<VehicleRepository>(
+  (ref) => ApiVehicleRepository(ref.watch(apiClientProvider)),
+);
 
-final vehicleRepositoryProvider = Provider<VehicleRepository>((ref) => useMockApi
-    ? MockVehicleRepository(ref.watch(mockDatabaseProvider))
-    : ApiVehicleRepository(ref.watch(apiClientProvider)));
+final orderRepositoryProvider = Provider<OrderRepository>(
+  (ref) => ApiOrderRepository(ref.watch(apiClientProvider)),
+);
 
-final orderRepositoryProvider = Provider<OrderRepository>((ref) => useMockApi
-    ? MockOrderRepository(ref.watch(mockDatabaseProvider))
-    : ApiOrderRepository(ref.watch(apiClientProvider)));
+final paymentRepositoryProvider = Provider<PaymentRepository>(
+  (ref) => ApiPaymentRepository(ref.watch(apiClientProvider)),
+);
 
-final paymentRepositoryProvider = Provider<PaymentRepository>((ref) => useMockApi
-    ? MockPaymentRepository(ref.watch(mockDatabaseProvider))
-    : ApiPaymentRepository(ref.watch(apiClientProvider)));
-
-final corporateRepositoryProvider = Provider<CorporateRepository>((ref) => useMockApi
-    ? MockCorporateRepository(ref.watch(mockDatabaseProvider))
-    : ApiCorporateRepository(ref.watch(apiClientProvider)));
+final corporateRepositoryProvider = Provider<CorporateRepository>(
+  (ref) => ApiCorporateRepository(ref.watch(apiClientProvider)),
+);

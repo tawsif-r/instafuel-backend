@@ -178,15 +178,15 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
           preferredSize: const Size.fromHeight(42),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            color: const Color(0xFF059669).withValues(alpha: 0.1),
+            color: const Color(0xFF004D3D).withValues(alpha: 0.1),
             child: const Row(
               children: [
-                Icon(Icons.shield_outlined, size: 16, color: Color(0xFF059669)),
+                Icon(Icons.shield_outlined, size: 16, color: Color(0xFF004D3D)),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'SOP-OPS-001 Compliant · 24h Advance Lead Time Required',
-                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF004D3D)),
                   ),
                 ),
               ],
@@ -300,7 +300,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
                     ? FilledButton(
                         onPressed: _next,
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF059669),
+                          backgroundColor: const Color(0xFF004D3D),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -310,7 +310,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
                     : FilledButton.icon(
                         onPressed: _placing ? null : _placeOrder,
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF059669),
+                          backgroundColor: const Color(0xFF004D3D),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -342,17 +342,17 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
           Container(
             margin: const EdgeInsets.only(bottom: 10),
             decoration: BoxDecoration(
-              color: _lines.containsKey(v.id) ? const Color(0xFF059669).withValues(alpha: 0.08) : Colors.transparent,
+              color: _lines.containsKey(v.id) ? const Color(0xFF004D3D).withValues(alpha: 0.08) : Colors.transparent,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: _lines.containsKey(v.id) ? const Color(0xFF059669) : Colors.grey.withValues(alpha: 0.25),
+                color: _lines.containsKey(v.id) ? const Color(0xFF004D3D) : Colors.grey.withValues(alpha: 0.25),
                 width: _lines.containsKey(v.id) ? 1.5 : 1,
               ),
             ),
             child: CheckboxListTile(
               value: _lines.containsKey(v.id),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              secondary: Icon(v.type.icon, color: const Color(0xFF059669)),
+              secondary: Icon(v.type.icon, color: const Color(0xFF004D3D)),
               title: Text(v.nickname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -383,8 +383,8 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             onPressed: () => context.push('/vehicle/new'),
-            icon: const Icon(Icons.add_rounded, color: Color(0xFF059669)),
-            label: const Text('Register Another Vehicle or Generator', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+            icon: const Icon(Icons.add_rounded, color: Color(0xFF004D3D)),
+            label: const Text('Register Another Vehicle or Generator', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF004D3D))),
           ),
         ),
       ],
@@ -435,7 +435,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
                   final v = vehicles.firstWhere((v) => v.id == entry.key);
                   return Row(
                     children: [
-                      Icon(v.type.icon, color: const Color(0xFF059669)),
+                      Icon(v.type.icon, color: const Color(0xFF004D3D)),
                       const SizedBox(width: AppTheme.gap8),
                       Expanded(
                         child: Text(v.nickname, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
@@ -462,7 +462,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
                       Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: ActionChip(
-                          avatar: const Icon(Icons.water_drop_rounded, size: 14, color: Color(0xFF059669)),
+                          avatar: const Icon(Icons.water_drop_rounded, size: 14, color: Color(0xFF004D3D)),
                           label: Text('${preset}L', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                           onPressed: () {
                             setState(() {
@@ -536,7 +536,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
           onChanged: (_) => setState(() => _stepError = null),
           decoration: const InputDecoration(
             labelText: 'Delivery Address & Location Pin',
-            prefixIcon: Icon(Icons.location_on_rounded, color: Color(0xFF059669)),
+            prefixIcon: Icon(Icons.location_on_rounded, color: Color(0xFF004D3D)),
             helperText: 'e.g. House 12, Road 5, Dhanmondi, Dhaka',
           ),
         ),
@@ -562,7 +562,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
         // Date selection
         Card(
           child: ListTile(
-            leading: const Icon(Icons.calendar_month_rounded, color: Color(0xFF059669)),
+            leading: const Icon(Icons.calendar_month_rounded, color: Color(0xFF004D3D)),
             title: Text(formatDate(_scheduledAt), style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: const Text('Delivery Date (Select Date)'),
             trailing: const Icon(Icons.edit_calendar_rounded),
@@ -650,7 +650,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
                   final v = vehicles.firstWhere((veh) => veh.id == e.key);
                   return Row(
                     children: [
-                      Icon(v.type.icon, size: 20, color: const Color(0xFF059669)),
+                      Icon(v.type.icon, size: 20, color: const Color(0xFF004D3D)),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text('${v.nickname} (${v.registrationNumber})', style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -760,7 +760,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
         Text(
           value,
           style: TextStyle(
-            color: isTotal ? const Color(0xFF34D399) : Colors.white,
+            color: isTotal ? const Color(0xFF00E599) : Colors.white,
             fontWeight: isTotal ? FontWeight.w900 : FontWeight.w700,
             fontSize: isTotal ? 18 : 13,
           ),
@@ -789,7 +789,7 @@ class _SlotChip extends StatelessWidget {
       label: Text(title, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500)),
       selected: isSelected,
       onSelected: (_) => onTap(),
-      selectedColor: const Color(0xFF059669),
+      selectedColor: const Color(0xFF004D3D),
       labelStyle: TextStyle(color: isSelected ? Colors.white : null),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       showCheckmark: false,

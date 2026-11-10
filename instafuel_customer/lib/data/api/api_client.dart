@@ -3,6 +3,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -26,6 +27,25 @@ class ApiClient {
   Future<dynamic> put(String path, Object? body) => _send('PUT', path, body);
   Future<dynamic> delete(String path) => _send('DELETE', path);
 
+  /// multipart/form-data upload of one file in the "file" field.
+  Future<dynamic> upload(String path, {required List<int> bytes, required String fileName}) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'))
+      ..headers['Accept'] = 'application/json'
+      ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+    if (token != null) request.headers['Authorization'] = 'Bearer $token';
+    return _handle(request, timeout: const Duration(seconds: 60));
+  }
+
+  /// Raw bytes of a file endpoint (e.g. an uploaded document preview).
+  Future<Uint8List> getBytes(String path) async {
+    final request = http.Request('GET', Uri.parse('$baseUrl$path'));
+    if (token != null) request.headers['Authorization'] = 'Bearer $token';
+    final response = await _execute(request, const Duration(seconds: 30));
+    if (response.statusCode >= 200 && response.statusCode < 300) return response.bodyBytes;
+    if (response.statusCode == 401) onUnauthorized?.call();
+    throw AppException(errorMessage(response.statusCode, _decode(response.body)));
+  }
+
   Future<dynamic> _send(String method, String path, [Object? body]) async {
     final request = http.Request(method, Uri.parse('$baseUrl$path'))..headers['Accept'] = 'application/json';
     if (token != null) request.headers['Authorization'] = 'Bearer $token';
@@ -34,20 +54,26 @@ class ApiClient {
       request.body = jsonEncode(body);
     }
 
-    final http.Response response;
+    return _handle(request);
+  }
+
+  Future<dynamic> _handle(http.BaseRequest request, {Duration timeout = const Duration(seconds: 15)}) async {
+    final response = await _execute(request, timeout);
+    final data = _decode(response.body);
+    if (response.statusCode >= 200 && response.statusCode < 300) return data;
+    if (response.statusCode == 401 && request.headers.containsKey('Authorization')) onUnauthorized?.call();
+    throw AppException(errorMessage(response.statusCode, data));
+  }
+
+  Future<http.Response> _execute(http.BaseRequest request, Duration timeout) async {
     try {
-      final streamed = await _http.send(request).timeout(const Duration(seconds: 15));
-      response = await http.Response.fromStream(streamed);
+      final streamed = await _http.send(request).timeout(timeout);
+      return await http.Response.fromStream(streamed);
     } on TimeoutException {
       throw const AppException('The server took too long to respond. Please try again.');
     } on http.ClientException {
       throw const AppException("Can't reach the server. Check your connection and try again.");
     }
-
-    final data = _decode(response.body);
-    if (response.statusCode >= 200 && response.statusCode < 300) return data;
-    if (response.statusCode == 401 && request.headers.containsKey('Authorization')) onUnauthorized?.call();
-    throw AppException(errorMessage(response.statusCode, data));
   }
 
   static dynamic _decode(String body) {

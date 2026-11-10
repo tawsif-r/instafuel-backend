@@ -17,6 +17,7 @@ enum PaymentStatus {
   unpaid('Unpaid'),
   pending('Pay on delivery'), // cash / bank transfer waiting for confirmation
   paid('Paid'),
+  refunded('Refunded'),
   failed('Payment failed');
 
   const PaymentStatus(this.label);

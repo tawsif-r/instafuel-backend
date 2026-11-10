@@ -85,10 +85,10 @@ class _JoinCompanySheetState extends ConsumerState<JoinCompanySheet> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF059669).withValues(alpha: 0.12),
+                  color: const Color(0xFF004D3D).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.business_rounded, color: Color(0xFF059669), size: 24),
+                child: const Icon(Icons.business_rounded, color: Color(0xFF004D3D), size: 24),
               ),
               const SizedBox(width: AppTheme.gap12),
               const Expanded(
@@ -96,7 +96,7 @@ class _JoinCompanySheetState extends ConsumerState<JoinCompanySheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Link Corporate Account', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-                    Text('SOP §4.2 Authorized Fleet Billing', style: TextStyle(color: Color(0xFF059669), fontSize: 12, fontWeight: FontWeight.bold)),
+                    Text('SOP §4.2 Authorized Fleet Billing', style: TextStyle(color: Color(0xFF004D3D), fontSize: 12, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -112,20 +112,15 @@ class _JoinCompanySheetState extends ConsumerState<JoinCompanySheet> {
           ),
           const SizedBox(height: AppTheme.gap16),
 
-          // Quick Code Suggestions / Demo Tags
+          // Quick Code Suggestions
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               _QuickCodeChip(
                 code: 'NORTHWIND',
-                label: 'Northwind Logistics',
+                label: 'Northwind Logistics Ltd.',
                 onSelected: () => setState(() => _code.text = 'NORTHWIND'),
-              ),
-              _QuickCodeChip(
-                code: 'DEMO_CORP',
-                label: 'Demo Fleet',
-                onSelected: () => setState(() => _code.text = 'DEMO_CORP'),
               ),
             ],
           ),
@@ -150,7 +145,7 @@ class _JoinCompanySheetState extends ConsumerState<JoinCompanySheet> {
           FilledButton(
             onPressed: _loading ? null : _join,
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF059669),
+              backgroundColor: const Color(0xFF004D3D),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -175,11 +170,11 @@ class _QuickCodeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ActionChip(
-      avatar: const Icon(Icons.bolt_rounded, size: 16, color: Color(0xFF059669)),
+      avatar: const Icon(Icons.bolt_rounded, size: 16, color: Color(0xFF004D3D)),
       label: Text('$code ($label)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
       onPressed: onSelected,
-      backgroundColor: const Color(0xFF059669).withValues(alpha: 0.08),
-      side: const BorderSide(color: Color(0xFF059669), width: 0.8),
+      backgroundColor: const Color(0xFF004D3D).withValues(alpha: 0.08),
+      side: const BorderSide(color: Color(0xFF004D3D), width: 0.8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     );
   }

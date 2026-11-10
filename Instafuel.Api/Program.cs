@@ -62,6 +62,9 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Uploaded customer documents (vehicle papers, plate photos). Local disk for now.
+builder.Services.AddSingleton<Instafuel.Api.Extensions.IDocumentStorage, Instafuel.Api.Extensions.LocalDocumentStorage>();
+
 builder.Services.AddDbContext<PgDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("PostgresConnection")
@@ -99,7 +102,15 @@ builder.Services.AddCors(o => o.AddPolicy("DevCors", p =>
 
 var app = builder.Build();
 
-// Dev only: fuel products + a supplier so orders can be placed (see Models/DevSeeder.cs).
+// Dev only: apply pending EF migrations on startup so new columns/tables exist
+// without a manual `dotnet ef database update`. Production runs migrations in the deploy pipeline.
+if (app.Configuration.GetValue("Database:AutoMigrate", false))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<PgDbContext>().Database.MigrateAsync();
+}
+
+// Dev only: fuel products, fleet, drivers so orders can be placed (see Models/DevSeeder.cs).
 if (app.Configuration.GetValue("Seed:DevFuelCatalog", false))
 {
     using var scope = app.Services.CreateScope();
@@ -116,7 +127,10 @@ if (app.Environment.IsDevelopment())
     app.UseCors("DevCors");
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

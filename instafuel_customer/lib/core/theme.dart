@@ -1,19 +1,22 @@
-// Deploy-grade Emerald Green Theme (FuelBuddy / Fuel Go inspired)
-// Primary: Emerald Green (0xFF00A86B / 0xFF059669)
-// Accent: Mint (0xFF10B981) & Dark Forest / Obsidian Slate (0xFF0A192F / 0xFF0F172A)
+// Deploy-grade Nordic Pine & Aurora Mint Palette
+// Signature luxury green: Deep Nordic Pine (0xFF00382B), Aurora Mint (0xFF00E599),
+// and Warm Eucalyptus / Sage tint surfaces.
 
 import 'package:flutter/material.dart';
 
 class AppTheme {
   AppTheme._();
 
-  // Emerald fuel green
-  static const seed = Color(0xFF00A86B);
-  static const primaryGreen = Color(0xFF059669);
-  static const darkForest = Color(0xFF064E3B);
-  static const mintAccent = Color(0xFF10B981);
-  static const lightBg = Color(0xFFF6FBF7);
-  static const darkBg = Color(0xFF0B1320);
+  // Signature Nordic Pine & Aurora Mint Palette
+  static const seed = Color(0xFF00382B);
+  static const primaryGreen = Color(0xFF004D3D);       // Deep Nordic Pine
+  static const pineDeep = Color(0xFF002E23);           // Imperial Pine / Dark Obsidian
+  static const mintAccent = Color(0xFF00E599);         // Aurora Mint (Electric, crisp, beautiful)
+  static const jadeLight = Color(0xFF10B981);          // Vibrant Jade
+  static const eucalyptusSage = Color(0xFFD1E7DD);     // Soft Eucalyptus border
+  static const lightBg = Color(0xFFF2F7F4);            // Crisp Mint Mist / Celadon background
+  static const darkBg = Color(0xFF071410);             // Midnight Forest dark mode
+  static const darkSurface = Color(0xFF0C1F1A);        // Elevated Pine surface
 
   // Spacing scale
   static const gap4 = 4.0;
@@ -38,9 +41,9 @@ class AppTheme {
     final scheme = ColorScheme.fromSeed(
       seedColor: seed,
       brightness: brightness,
-      primary: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
-      secondary: const Color(0xFF0D9488),
-      surface: isDark ? darkBg : Colors.white,
+      primary: isDark ? mintAccent : primaryGreen,
+      secondary: const Color(0xFF0F766E),
+      surface: isDark ? darkSurface : Colors.white,
     );
     final rounded = RoundedRectangleBorder(borderRadius: BorderRadius.circular(16));
 
@@ -54,54 +57,54 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         titleTextStyle: TextStyle(
-          color: isDark ? Colors.white : const Color(0xFF0F172A),
-          fontSize: 19,
+          color: isDark ? Colors.white : pineDeep,
+          fontSize: 20,
           fontWeight: FontWeight.w800,
           letterSpacing: -0.4,
         ),
-        iconTheme: IconThemeData(color: isDark ? Colors.white : const Color(0xFF0F172A)),
+        iconTheme: IconThemeData(color: isDark ? Colors.white : pineDeep),
       ),
       cardTheme: CardThemeData(
         elevation: isDark ? 0 : 2,
-        shadowColor: const Color(0xFF059669).withValues(alpha: 0.06),
+        shadowColor: primaryGreen.withValues(alpha: 0.08),
         margin: EdgeInsets.zero,
-        color: isDark ? const Color(0xFF131F33) : Colors.white,
+        color: isDark ? darkSurface : Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radius),
           side: BorderSide(
-            color: isDark ? const Color(0xFF1E2E48) : const Color(0xFFE2EBE5),
+            color: isDark ? const Color(0xFF16382E) : eucalyptusSage,
             width: 1.2,
           ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark ? const Color(0xFF131F33) : Colors.white,
+        fillColor: isDark ? darkSurface : Colors.white,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(
-            color: isDark ? const Color(0xFF1E2E48) : const Color(0xFFD1E0D7),
+            color: isDark ? const Color(0xFF16382E) : const Color(0xFFC3DFD3),
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF059669), width: 2),
+          borderSide: const BorderSide(color: primaryGreen, width: 2),
         ),
         labelStyle: TextStyle(
-          color: isDark ? Colors.grey[400] : const Color(0xFF475569),
+          color: isDark ? Colors.grey[400] : const Color(0xFF285043),
           fontWeight: FontWeight.w500,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF059669),
+          backgroundColor: primaryGreen,
           foregroundColor: Colors.white,
           minimumSize: const Size(64, 54),
           shape: rounded,
-          elevation: 2,
-          shadowColor: const Color(0xFF059669).withValues(alpha: 0.35),
+          elevation: 2.5,
+          shadowColor: primaryGreen.withValues(alpha: 0.35),
           textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5, letterSpacing: -0.2),
         ),
       ),
@@ -109,15 +112,15 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(64, 54),
           shape: rounded,
-          side: const BorderSide(color: Color(0xFF059669), width: 1.5),
-          foregroundColor: const Color(0xFF059669),
+          side: const BorderSide(color: primaryGreen, width: 1.5),
+          foregroundColor: primaryGreen,
           textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: pineDeep,
         contentTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
       ),
       listTileTheme: const ListTileThemeData(

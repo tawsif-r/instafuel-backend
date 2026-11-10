@@ -122,6 +122,35 @@ public class AuthController : ControllerBase
         }
     }
 
+    [Authorize]
+    [HttpPut("profile")]
+    public async Task<ActionResult<User>> UpdateProfile(UpdateProfileRequest request)
+    {
+        try
+        {
+            var userId = User.GetUserId();
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+            if (user is null) return Unauthorized();
+
+            var phone = request.Phone.Trim();
+            if (await _context.Users.AnyAsync(u => u.Phone == phone && u.Id != userId))
+                return Conflict(new { message = "Another account with this phone number already exists." });
+
+            user.FullName = request.FullName.Trim();
+            user.Phone = phone;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return Ok(user);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update profile. Operation: {Operation}", nameof(UpdateProfile));
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new { message = "An error occurred while updating your profile." });
+        }
+    }
+
     // Signed JWT with the user's id (sub), email, name and role. Settings come from the "Jwt" config section.
     private AuthResponse CreateAuthResponse(User user)
     {
