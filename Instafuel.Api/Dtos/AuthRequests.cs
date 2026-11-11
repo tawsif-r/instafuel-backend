@@ -19,3 +19,7 @@ public record LoginRequest(
 
 // Returned by register and login. The app sends Token as "Authorization: Bearer <token>".
 public record AuthResponse(string Token, DateTime ExpiresAt, User User);
+
+public record UpdateProfileRequest(
+    [Required, MaxLength(150)] string FullName,
+    [Required, MaxLength(20)] string Phone);

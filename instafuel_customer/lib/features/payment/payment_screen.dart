@@ -57,7 +57,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         data: (order) {
           if (order == null) return const EmptyState(icon: Icons.search_off, title: 'Order not found');
 
-          final company = affiliations.where((a) => a.id == order.corporateId && a.isActive).firstOrNull;
+          final company = (order.corporateId != null
+                  ? affiliations.where((a) => a.id == order.corporateId && a.isActive).firstOrNull
+                  : null) ??
+              affiliations.where((a) => a.isActive).firstOrNull;
           final methods = PaymentMethod.values
               .where((m) => m != PaymentMethod.corporateCredit || company != null)
               .toList();
@@ -107,7 +110,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     FilledButton.icon(
                       onPressed: _method == null || _paying ? null : () => _pay(order),
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF059669),
+                        backgroundColor: const Color(0xFF004D3D),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -142,7 +145,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     return Text(
       '${c.companyName} · ${formatMoney(c.availableCredit)} credit available',
       style: TextStyle(
-        color: enough ? const Color(0xFF059669) : const Color(0xFFDC2626),
+        color: enough ? const Color(0xFF004D3D) : const Color(0xFFDC2626),
         fontWeight: FontWeight.bold,
         fontSize: 12,
       ),
@@ -187,7 +190,7 @@ class _InvoiceSummaryHeader extends StatelessWidget {
               ),
               Text(
                 order.orderNumber,
-                style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 13),
+                style: const TextStyle(color: Color(0xFF00E599), fontWeight: FontWeight.bold, fontSize: 13),
               ),
             ],
           ),
@@ -239,11 +242,11 @@ class _PaymentMethodTile extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFF059669).withValues(alpha: isDark ? 0.2 : 0.08)
+              ? const Color(0xFF004D3D).withValues(alpha: isDark ? 0.2 : 0.08)
               : (isDark ? const Color(0xFF1E293B) : Colors.white),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? const Color(0xFF059669) : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+            color: selected ? const Color(0xFF004D3D) : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
             width: selected ? 2 : 1,
           ),
         ),
@@ -253,7 +256,7 @@ class _PaymentMethodTile extends StatelessWidget {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: selected ? const Color(0xFF059669) : Colors.grey.withValues(alpha: 0.15),
+                color: selected ? const Color(0xFF004D3D) : Colors.grey.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(method.icon, color: selected ? Colors.white : Colors.grey, size: 22),
@@ -271,7 +274,7 @@ class _PaymentMethodTile extends StatelessWidget {
             ),
             Icon(
               selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-              color: selected ? const Color(0xFF059669) : Colors.grey,
+              color: selected ? const Color(0xFF004D3D) : Colors.grey,
             ),
           ],
         ),
@@ -298,7 +301,7 @@ class _SecurityBadge extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF059669)),
+          Icon(icon, size: 18, color: const Color(0xFF004D3D)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(text, style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569))),

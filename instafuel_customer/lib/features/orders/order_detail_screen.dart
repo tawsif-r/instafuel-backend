@@ -19,7 +19,9 @@ import '../../core/widgets/responsive_center.dart';
 import '../../core/widgets/section_card.dart';
 import '../../core/widgets/status_chip.dart';
 import '../../models/order.dart';
+import '../../models/payment.dart';
 import '../../models/vehicle.dart';
+import '../../data/providers.dart';
 import '../vehicles/vehicles_controller.dart';
 import 'orders_controller.dart';
 
@@ -82,7 +84,7 @@ class OrderDetailScreen extends ConsumerWidget {
             ? const EmptyState(icon: Icons.search_off, title: 'Order not found')
             : _Body(order: order),
       ),
-      bottomNavigationBar: order == null || (!order.needsPayment && !order.canCancel)
+      bottomNavigationBar: order == null || (!order.needsPayment && !order.canCancel && (order.deliveryStatus == DeliveryStatus.delivered || order.deliveryStatus == DeliveryStatus.cancelled))
           ? null
           : SafeArea(
               child: Padding(
@@ -109,11 +111,27 @@ class OrderDetailScreen extends ConsumerWidget {
                           child: FilledButton(
                             onPressed: () => context.push('/order/${order.id}/pay'),
                             style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF059669),
+                              backgroundColor: const Color(0xFF004D3D),
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
                             child: Text('Pay Invoice ${formatMoney(order.total)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      if (!order.needsPayment && order.deliveryStatus != DeliveryStatus.delivered && order.deliveryStatus != DeliveryStatus.cancelled)
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () => _progressDelivery(context, ref, order),
+                            icon: const Icon(Icons.local_shipping_rounded),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF004D3D),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            label: Text(
+                              _nextStepLabel(order.deliveryStatus),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                            ),
                           ),
                         ),
                     ],
@@ -122,6 +140,35 @@ class OrderDetailScreen extends ConsumerWidget {
               ),
             ),
     );
+  }
+
+  static String _nextStepLabel(DeliveryStatus status) => switch (status) {
+        DeliveryStatus.pending => 'Assign Fleet & Driver',
+        DeliveryStatus.assigned => 'Dispatch from Depot',
+        DeliveryStatus.dispatched => 'Mark Bowser En Route',
+        DeliveryStatus.inTransit => 'Verify Plate & Dispense (SOP §10.3)',
+        _ => 'Refresh Delivery Status',
+      };
+
+  static Future<void> _progressDelivery(BuildContext context, WidgetRef ref, Order order) async {
+    try {
+      final updated = await ref.read(orderRepositoryProvider).progressDelivery(order.id);
+      ref.invalidate(ordersProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Delivery updated: ${updated.deliveryStatus.name.toUpperCase()} (SOP §10.3 Logged)'),
+            backgroundColor: const Color(0xFF004D3D),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update: $e'), backgroundColor: const Color(0xFFDC2626)),
+        );
+      }
+    }
   }
 }
 
@@ -184,7 +231,7 @@ class _Body extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFF059669)),
+                        const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFF004D3D)),
                         const SizedBox(width: 4),
                         Expanded(child: Text(order.address, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
                       ],
@@ -192,6 +239,60 @@ class _Body extends ConsumerWidget {
                     if (!stopped) ...[
                       const SizedBox(height: AppTheme.gap20),
                       DeliveryProgress(status: order.deliveryStatus),
+                    ],
+
+                    // Refund Banner when order is cancelled and refunded
+                    if (order.status == OrderStatus.cancelled && (order.refund != null || order.paymentStatus == PaymentStatus.refunded)) ...[
+                      const SizedBox(height: AppTheme.gap16),
+                      Container(
+                        padding: const EdgeInsets.all(AppTheme.gap12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFBFDBFE)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.currency_exchange_rounded, color: Color(0xFF2563EB), size: 22),
+                            const SizedBox(width: AppTheme.gap10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        'Refund Issued (SOP §15.2)',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E40AF)),
+                                      ),
+                                      Text(
+                                        order.refund != null ? formatMoney(order.refund!.amount) : formatMoney(order.total),
+                                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF1E40AF)),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    order.refund?.providerReference != null
+                                        ? 'Status: ${order.refund!.status.toUpperCase()} · Ref: ${order.refund!.providerReference}'
+                                        : 'Refund processed to original payment method.',
+                                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF3B82F6), fontWeight: FontWeight.w500),
+                                  ),
+                                  if (order.refund != null) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Issued at: ${formatDateTime(order.refund!.createdAt)}',
+                                      style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
 
                     // Assigned Driver & Bowser Truck
@@ -206,7 +307,7 @@ class _Body extends ConsumerWidget {
                               shape: BoxShape.circle,
                               color: Color(0xFF0F172A),
                             ),
-                            child: const Icon(Icons.person_pin_rounded, color: Color(0xFF34D399), size: 26),
+                            child: const Icon(Icons.person_pin_rounded, color: Color(0xFF00E599), size: 26),
                           ),
                           const SizedBox(width: AppTheme.gap12),
                           Expanded(
@@ -225,7 +326,7 @@ class _Body extends ConsumerWidget {
                                       ),
                                       child: const Text(
                                         'HAZMAT CERTIFIED',
-                                        style: TextStyle(color: Color(0xFF059669), fontSize: 8.5, fontWeight: FontWeight.bold),
+                                        style: TextStyle(color: Color(0xFF004D3D), fontSize: 8.5, fontWeight: FontWeight.bold),
                                       ),
                                     ),
                                   ],
@@ -290,12 +391,12 @@ class _Body extends ConsumerWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF059669).withValues(alpha: 0.1),
+                              color: const Color(0xFF004D3D).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               order.paymentMethod!.label.toUpperCase(),
-                              style: const TextStyle(color: Color(0xFF059669), fontSize: 10, fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: Color(0xFF004D3D), fontSize: 10, fontWeight: FontWeight.bold),
                             ),
                           ),
                       ],
@@ -306,7 +407,7 @@ class _Body extends ConsumerWidget {
                     _Row('Distance-based Delivery Fee (Zone A)', formatMoney(order.deliveryFee)),
                     const Divider(height: 20),
                     _Row('Total Invoice Amount', formatMoney(order.total), bold: true),
-                    if (order.corporateId != null) ...[
+                    if (order.corporateId != null || order.paymentMethod == PaymentMethod.corporateCredit) ...[
                       const SizedBox(height: AppTheme.gap8),
                       Container(
                         padding: const EdgeInsets.all(8),
@@ -413,10 +514,10 @@ class _VehicleLine extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF059669).withValues(alpha: 0.1),
+                color: const Color(0xFF004D3D).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.directions_car_rounded, color: Color(0xFF059669), size: 22),
+              child: const Icon(Icons.directions_car_rounded, color: Color(0xFF004D3D), size: 22),
             ),
             const SizedBox(width: AppTheme.gap12),
             Expanded(
@@ -473,7 +574,7 @@ class _Row extends StatelessWidget {
             style: TextStyle(
               fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
               fontSize: bold ? 17 : 13,
-              color: bold ? const Color(0xFF059669) : null,
+              color: bold ? const Color(0xFF004D3D) : null,
             ),
           ),
         ],
@@ -491,7 +592,7 @@ class _TimelineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFF059669);
+    const activeColor = Color(0xFF004D3D);
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -30,8 +30,280 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _addressController = TextEditingController();
+
   FuelType _selectedFuel = FuelType.octane;
   int _selectedLitres = 30;
+  String _selectedZone = 'Dhaka Metro · Central Hub';
+  String? _deliveryAddress;
+  late List<_NotificationItem> _notifications;
+
+  @override
+  void initState() {
+    super.initState();
+    _notifications = [
+      _NotificationItem(
+        id: '1',
+        title: 'Smart Bowser Fleet Active',
+        message: 'Primary depot operational. 12 GPS-tracked bowsers ready for fast doorstep refueling in your sector.',
+        time: 'Just now',
+        icon: Icons.local_shipping_rounded,
+        color: const Color(0xFF004D3D),
+      ),
+      _NotificationItem(
+        id: '2',
+        title: 'Equipment Verification Audit',
+        message: 'SOP §4.3 verification completed for registered vehicles. Instant refueling authorization enabled.',
+        time: '25m ago',
+        icon: Icons.verified_user_rounded,
+        color: const Color(0xFF00E599),
+      ),
+      _NotificationItem(
+        id: '3',
+        title: 'Calibrated Fuel Rates Today',
+        message: 'Octane ৳125.00/L · Petrol ৳121.00/L · Diesel ৳105.00/L. Digital flow meter certified at primary depot.',
+        time: '08:00 AM',
+        icon: Icons.speed_rounded,
+        color: const Color(0xFF0284C7),
+      ),
+      _NotificationItem(
+        id: '4',
+        title: 'Zero Adulteration Guarantee',
+        message: 'Every delivery is electronically sealed from depot with density & quality verification certificates.',
+        time: 'Yesterday',
+        icon: Icons.shield_rounded,
+        color: const Color(0xFF6366F1),
+      ),
+    ];
+  }
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    super.dispose();
+  }
+
+  void _showZonePicker() {
+    final zones = [
+      ('Dhaka Metro · Central Hub', 'Tejgaon Central Fuel Depot (Primary Bowser Hub)', '15-20 min dispatch'),
+      ('Gulshan & Banani Zone', 'Diplomatic Enclave & Commercial Offices (Zone A)', '20-25 min dispatch'),
+      ('Dhanmondi & Lalmatia Zone', 'Dhanmondi Lake & Residential/Retail (Zone B)', '20-30 min dispatch'),
+      ('Uttara & Airport Zone', 'Uttara Sectors 1-18 & Airport Corridor (Zone C)', '25-35 min dispatch'),
+      ('Bashundhara & Baridhara Hub', 'Corporate Campuses & Generator Stations (Zone D)', '25-35 min dispatch'),
+      ('Mirpur & Pallabi Zone', 'Mirpur DOHS & Industrial Cluster (Zone E)', '25-35 min dispatch'),
+      ('Motijheel & Old Dhaka Zone', 'Financial District & Commercial Hub (Zone F)', '20-30 min dispatch'),
+    ];
+
+    final orders = ref.read(ordersProvider).value ?? [];
+    if (_addressController.text.isEmpty) {
+      _addressController.text = _deliveryAddress ?? orders.firstOrNull?.address ?? '';
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final media = MediaQuery.of(ctx);
+
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: media.size.height * 0.85,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.only(
+            left: AppTheme.gap16,
+            right: AppTheme.gap16,
+            top: AppTheme.gap14,
+            bottom: media.viewInsets.bottom + AppTheme.gap16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Drag Handle Pill
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF004D3D).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.location_on_rounded, color: Color(0xFF004D3D), size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Select Delivery Zone', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+                        Text('Choose bowser dispatch sector & your street address', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppTheme.gap12),
+
+              // Specific Street Address input
+              TextFormField(
+                controller: _addressController,
+                decoration: InputDecoration(
+                  labelText: 'Street / Building Address (Optional)',
+                  hintText: 'e.g. House 12, Road 5, Block B',
+                  prefixIcon: const Icon(Icons.home_work_outlined, size: 20),
+                  isDense: true,
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFF004D3D), width: 1.5),
+                  ),
+                ),
+                onChanged: (val) {
+                  setState(() => _deliveryAddress = val.trim().isEmpty ? null : val.trim());
+                },
+              ),
+              const SizedBox(height: AppTheme.gap12),
+
+              const Text(
+                'Available Bowser Hubs',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, letterSpacing: 0.2),
+              ),
+              const SizedBox(height: AppTheme.gap8),
+
+              // Scrollable List of Delivery Zones
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: zones.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: AppTheme.gap8),
+                  itemBuilder: (context, i) {
+                    final (name, subtitle, eta) = zones[i];
+                    final isSelected = _selectedZone == name;
+
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () {
+                        setState(() {
+                          _selectedZone = name;
+                          if (_addressController.text.trim().isNotEmpty) {
+                            _deliveryAddress = _addressController.text.trim();
+                          }
+                        });
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Delivery zone set to: $name ($eta)'),
+                            backgroundColor: const Color(0xFF004D3D),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFF004D3D).withValues(alpha: isDark ? 0.25 : 0.08)
+                              : (isDark ? const Color(0xFF1E293B) : Colors.white),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isSelected
+                                ? const Color(0xFF004D3D)
+                                : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                            width: isSelected ? 1.8 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                              color: isSelected ? const Color(0xFF004D3D) : Colors.grey,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    name,
+                                    style: TextStyle(
+                                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                      fontSize: 13.5,
+                                      color: isSelected ? const Color(0xFF004D3D) : null,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    subtitle,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF00E599).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                eta,
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  color: Color(0xFF004D3D),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +320,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      key: _scaffoldKey,
+      endDrawer: _NotificationSidePanel(
+        notifications: _notifications,
+        onClearAll: () {
+          setState(() => _notifications.clear());
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('All notifications cleared.'),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
+        onDismiss: (id) {
+          setState(() => _notifications.removeWhere((n) => n.id == id));
+        },
+      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () {
@@ -65,9 +354,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       // Location Selector Chip
                       Expanded(
                         child: InkWell(
-                          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Delivery zone: Dhaka Metro (Central & North).')),
-                          ),
+                          onTap: _showZonePicker,
                           borderRadius: BorderRadius.circular(30),
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -91,10 +378,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   width: 28,
                                   height: 28,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF059669).withValues(alpha: 0.15),
+                                    color: const Color(0xFF004D3D).withValues(alpha: 0.15),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(Icons.location_on_rounded, color: Color(0xFF059669), size: 16),
+                                  child: const Icon(Icons.location_on_rounded, color: Color(0xFF004D3D), size: 16),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -109,7 +396,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                             style: TextStyle(
                                               fontSize: 9,
                                               fontWeight: FontWeight.w800,
-                                              color: Color(0xFF059669),
+                                              color: Color(0xFF004D3D),
                                               letterSpacing: 0.6,
                                             ),
                                           ),
@@ -119,14 +406,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                             height: 6,
                                             decoration: const BoxDecoration(
                                               shape: BoxShape.circle,
-                                              color: Color(0xFF10B981),
+                                              color: Color(0xFF00E599),
                                             ),
                                           ),
                                         ],
                                       ),
-                                      const Text(
-                                        'Dhanmondi, Road 5 · Dhaka',
-                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        _selectedZone,
+                                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        _deliveryAddress ?? orders.firstOrNull?.address ?? 'Tap to set address / zone',
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -140,17 +438,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                       ),
                       const SizedBox(width: AppTheme.gap12),
-                      // Notifications & Profile avatar
+                      // Notifications & Side Panel trigger
                       IconButton.filledTonal(
                         tooltip: 'Notifications',
                         style: IconButton.styleFrom(
                           backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
-                        icon: const Icon(Icons.notifications_none_rounded, size: 22),
-                        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('All delivery systems operational.')),
+                        icon: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            const Icon(Icons.notifications_none_rounded, size: 22),
+                            if (_notifications.isNotEmpty)
+                              Positioned(
+                                top: -1,
+                                right: -1,
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF00E599),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
+                        onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
                       ),
                     ],
                   ),
@@ -206,7 +520,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   Text(
                                     'DEPOT OPEN',
                                     style: TextStyle(
-                                      color: Color(0xFF059669),
+                                      color: Color(0xFF004D3D),
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: 0.5,
@@ -256,10 +570,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         _GarageVehicleShowcase(vehicles: vehicles),
                         const SizedBox(height: AppTheme.gap24),
 
-                        // InstaFuel 4 Safety Pillars (Trust Badges)
-                        const _InstaFuelTrustBadges(),
-                        const SizedBox(height: AppTheme.gap24),
-
                         // Recent Refuel Orders
                         if (orders.isNotEmpty) ...[
                           Row(
@@ -284,7 +594,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             OrderTile(order: o),
                             const SizedBox(height: AppTheme.gap12),
                           ],
+                          const SizedBox(height: AppTheme.gap16),
                         ],
+
+                        // 100% Pure, Digital Meter, Safe Delivery (Placed at the very bottom as requested)
+                        const _InstaFuelTrustBadges(),
                         const SizedBox(height: AppTheme.gap32),
                       ],
                     ),
@@ -346,7 +660,7 @@ class _SimulatedDepotRadarBanner extends StatelessWidget {
                 height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.25), width: 1.5),
+                  border: Border.all(color: const Color(0xFF004D3D).withValues(alpha: 0.25), width: 1.5),
                 ),
               ),
             ),
@@ -358,9 +672,9 @@ class _SimulatedDepotRadarBanner extends StatelessWidget {
                 height: 30,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF059669).withValues(alpha: 0.2),
+                  color: const Color(0xFF004D3D).withValues(alpha: 0.2),
                 ),
-                child: const Icon(Icons.local_shipping_rounded, color: Color(0xFF34D399), size: 16),
+                child: const Icon(Icons.local_shipping_rounded, color: Color(0xFF00E599), size: 16),
               ),
             ),
 
@@ -374,19 +688,19 @@ class _SimulatedDepotRadarBanner extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF059669).withValues(alpha: 0.2),
+                          color: const Color(0xFF004D3D).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.5)),
+                          border: Border.all(color: const Color(0xFF004D3D).withValues(alpha: 0.5)),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.radar_rounded, color: Color(0xFF34D399), size: 13),
+                            Icon(Icons.radar_rounded, color: Color(0xFF00E599), size: 13),
                             SizedBox(width: 5),
                             Text(
                               'SMART BOWSER RADAR',
                               style: TextStyle(
-                                color: Color(0xFF34D399),
+                                color: Color(0xFF00E599),
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 0.8,
@@ -424,7 +738,7 @@ class _SimulatedDepotRadarBanner extends StatelessWidget {
                       ElevatedButton.icon(
                         onPressed: () => context.push('/new-order'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF059669),
+                          backgroundColor: const Color(0xFF004D3D),
                           foregroundColor: Colors.white,
                           elevation: 3,
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -475,7 +789,7 @@ class _ServicesGrid extends StatelessWidget {
             title: 'Order Fuel',
             subtitle: 'Cars & Bikes',
             icon: Icons.local_gas_station_rounded,
-            color: const Color(0xFF059669),
+            color: const Color(0xFF004D3D),
             onTap: () => context.push('/new-order'),
           ),
         ),
@@ -495,7 +809,7 @@ class _ServicesGrid extends StatelessWidget {
             title: 'Corporate',
             subtitle: hasCorporate ? 'Credit Active' : 'Apply Credit',
             icon: Icons.corporate_fare_rounded,
-            color: const Color(0xFF059669),
+            color: const Color(0xFF004D3D),
             onTap: () => context.push('/corporate'),
           ),
         ),
@@ -607,7 +921,7 @@ class _FuelSelectorCard extends StatelessWidget {
       case FuelType.octane:
         return const Color(0xFF0D9488); // Teal (green-family accent)
       case FuelType.petrol:
-        return const Color(0xFF059669); // Emerald Green
+        return const Color(0xFF004D3D); // Emerald Green
       case FuelType.diesel:
         return const Color(0xFFD97706); // Warm Amber
     }
@@ -655,7 +969,7 @@ class _FuelSelectorCard extends StatelessWidget {
                 ),
                 child: const Text(
                   'SEALED METER',
-                  style: TextStyle(color: Color(0xFF059669), fontSize: 9.5, fontWeight: FontWeight.w800),
+                  style: TextStyle(color: Color(0xFF004D3D), fontSize: 9.5, fontWeight: FontWeight.w800),
                 ),
               ),
             ],
@@ -726,7 +1040,7 @@ class _FuelSelectorCard extends StatelessWidget {
                       label: Text('${preset}L', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       selected: selectedLitres == preset,
                       onSelected: (_) => onLitresChanged(preset),
-                      selectedColor: const Color(0xFF059669),
+                      selectedColor: const Color(0xFF004D3D),
                       labelStyle: TextStyle(
                         color: selectedLitres == preset ? Colors.white : theme.colorScheme.onSurface,
                       ),
@@ -752,7 +1066,7 @@ class _FuelSelectorCard extends StatelessWidget {
                     formatMoney(_calculatedTotal),
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w900,
-                      color: const Color(0xFF059669),
+                      color: const Color(0xFF004D3D),
                       letterSpacing: -0.5,
                     ),
                   ),
@@ -761,7 +1075,7 @@ class _FuelSelectorCard extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onOrderPressed,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF059669),
+                  backgroundColor: const Color(0xFF004D3D),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
@@ -790,10 +1104,10 @@ class _ActiveBowserLiveTracker extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.5), width: 1.5),
+        border: Border.all(color: const Color(0xFF004D3D).withValues(alpha: 0.5), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF059669).withValues(alpha: 0.15),
+            color: const Color(0xFF004D3D).withValues(alpha: 0.15),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -840,7 +1154,7 @@ class _ActiveBowserLiveTracker extends StatelessWidget {
 
               Text(
                 'Tracking ${order.orderNumber}',
-                style: const TextStyle(color: Color(0xFF34D399), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.3),
+                style: const TextStyle(color: Color(0xFF00E599), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.3),
               ),
               const SizedBox(height: 4),
               Text(
@@ -876,7 +1190,7 @@ class _ActiveBowserLiveTracker extends StatelessWidget {
                         shape: BoxShape.circle,
                         color: Color(0xFF1E293B),
                       ),
-                      child: const Icon(Icons.person_pin_rounded, color: Color(0xFF34D399), size: 24),
+                      child: const Icon(Icons.person_pin_rounded, color: Color(0xFF00E599), size: 24),
                     ),
                     const SizedBox(width: AppTheme.gap12),
                     Expanded(
@@ -902,7 +1216,7 @@ class _ActiveBowserLiveTracker extends StatelessWidget {
                       tooltip: 'Call Bowser Driver',
                       style: IconButton.styleFrom(
                         backgroundColor: const Color(0xFF1E293B),
-                        foregroundColor: const Color(0xFF34D399),
+                        foregroundColor: const Color(0xFF00E599),
                       ),
                       icon: const Icon(Icons.phone_in_talk_rounded),
                       onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
@@ -1002,7 +1316,7 @@ class _GarageVehicleShowcase extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            Icon(v.type.icon, size: 20, color: const Color(0xFF059669)),
+                            Icon(v.type.icon, size: 20, color: const Color(0xFF004D3D)),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -1029,16 +1343,16 @@ class _GarageVehicleShowcase extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF059669).withValues(alpha: 0.12),
+                                color: const Color(0xFF004D3D).withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 v.fuelType.label,
-                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF004D3D)),
                               ),
                             ),
                             const Spacer(),
-                            const Text('Refuel ➔', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF059669))),
+                            const Text('Refuel ➔', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF004D3D))),
                           ],
                         ),
                       ],
@@ -1059,20 +1373,36 @@ class _InstaFuelTrustBadges extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
-      padding: const EdgeInsets.all(AppTheme.gap16),
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.gap16, vertical: AppTheme.gap16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+        ),
       ),
-      child: const Column(
+      child: const Row(
         children: [
-          Row(
-            children: [
-              _TrustItem(icon: Icons.verified_user_rounded, title: '100% Pure', subtitle: 'Zero Adulteration'),
-              _TrustItem(icon: Icons.speed_rounded, title: 'Digital Meter', subtitle: 'Calibrated Accuracy'),
-              _TrustItem(icon: Icons.shield_rounded, title: 'Safe Delivery', subtitle: 'PESO & Hazmat Compliant'),
-            ],
+          _TrustItem(
+            icon: Icons.verified_user_rounded,
+            title: '100% Pure',
+            subtitle: 'Zero Adulteration',
+            iconColor: Color(0xFF00E599),
+          ),
+          _TrustItem(
+            icon: Icons.speed_rounded,
+            title: 'Digital Meter',
+            subtitle: 'Calibrated Accuracy',
+            iconColor: Color(0xFF004D3D),
+          ),
+          _TrustItem(
+            icon: Icons.shield_rounded,
+            title: 'Safe Delivery',
+            subtitle: 'PESO & Hazmat Compliant',
+            iconColor: Color(0xFF10B981),
           ),
         ],
       ),
@@ -1081,24 +1411,271 @@ class _InstaFuelTrustBadges extends StatelessWidget {
 }
 
 class _TrustItem extends StatelessWidget {
-  const _TrustItem({required this.icon, required this.title, required this.subtitle});
+  const _TrustItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.iconColor,
+  });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Expanded(
       child: Column(
         children: [
-          Icon(icon, color: const Color(0xFF0F172A), size: 22),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: isDark ? 0.25 : 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
           const SizedBox(height: 6),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF0F172A))),
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B)), textAlign: TextAlign.center),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 10,
+              color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
+            ),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
   }
 }
+
+/// Notification Data Model
+class _NotificationItem {
+  final String id;
+  final String title;
+  final String message;
+  final String time;
+  final IconData icon;
+  final Color color;
+
+  const _NotificationItem({
+    required this.id,
+    required this.title,
+    required this.message,
+    required this.time,
+    required this.icon,
+    required this.color,
+  });
+}
+
+/// Notification Sliding Side Panel (Drawer)
+class _NotificationSidePanel extends StatelessWidget {
+  const _NotificationSidePanel({
+    required this.notifications,
+    required this.onClearAll,
+    required this.onDismiss,
+  });
+
+  final List<_NotificationItem> notifications;
+  final VoidCallback onClearAll;
+  final ValueChanged<String> onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Drawer(
+      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(left: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Drawer Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppTheme.gap20, AppTheme.gap16, AppTheme.gap12, AppTheme.gap12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF004D3D).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.notifications_active_rounded, color: Color(0xFF004D3D), size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Notifications',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                        ),
+                        Text(
+                          notifications.isEmpty ? 'All caught up' : '${notifications.length} active updates',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (notifications.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: onClearAll,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        foregroundColor: const Color(0xFFDC2626),
+                      ),
+                      icon: const Icon(Icons.clear_all_rounded, size: 16),
+                      label: const Text('Clear all', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+
+            // Notification List or Empty State
+            Expanded(
+              child: notifications.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppTheme.gap24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.notifications_off_outlined, size: 40, color: Colors.grey),
+                            ),
+                            const SizedBox(height: AppTheme.gap16),
+                            const Text(
+                              'No Notifications',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'You are all caught up! New bowser dispatches, tariff updates, and fuel deliveries will show up here.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: AppTheme.gap16, vertical: AppTheme.gap12),
+                      itemCount: notifications.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: AppTheme.gap10),
+                      itemBuilder: (context, i) {
+                        final n = notifications[i];
+                        return Dismissible(
+                          key: Key(n.id),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDC2626).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626)),
+                          ),
+                          onDismissed: (_) => onDismiss(n.id),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: n.color.withValues(alpha: 0.15),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(n.icon, color: n.color, size: 18),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              n.title,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                            ),
+                                          ),
+                                          Text(
+                                            n.time,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: isDark ? Colors.grey[400] : const Color(0xFF94A3B8),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        n.message,
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          height: 1.35,
+                                          color: isDark ? Colors.grey[300] : const Color(0xFF475569),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

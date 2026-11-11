@@ -229,6 +229,9 @@ namespace Instafuel.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ContentType")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("CustomerVehicleId")
                         .HasColumnType("uuid");
 
@@ -241,6 +244,12 @@ namespace Instafuel.Api.Migrations
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
+
+                    b.Property<long?>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("UploadedAt")
                         .HasColumnType("timestamp with time zone");

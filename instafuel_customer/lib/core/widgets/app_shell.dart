@@ -37,27 +37,27 @@ class AppShell extends StatelessWidget {
           selectedIndex: shell.currentIndex,
           elevation: 0,
           backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-          indicatorColor: const Color(0xFF059669).withValues(alpha: 0.15),
+          indicatorColor: const Color(0xFF004D3D).withValues(alpha: 0.15),
           onDestinationSelected: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.local_gas_station_outlined),
-              selectedIcon: Icon(Icons.local_gas_station_rounded, color: Color(0xFF059669)),
+              selectedIcon: Icon(Icons.local_gas_station_rounded, color: Color(0xFF004D3D)),
               label: 'Refuel',
             ),
             NavigationDestination(
               icon: Icon(Icons.receipt_long_outlined),
-              selectedIcon: Icon(Icons.receipt_long_rounded, color: Color(0xFF059669)),
+              selectedIcon: Icon(Icons.receipt_long_rounded, color: Color(0xFF004D3D)),
               label: 'Orders',
             ),
             NavigationDestination(
               icon: Icon(Icons.directions_car_outlined),
-              selectedIcon: Icon(Icons.directions_car_rounded, color: Color(0xFF059669)),
+              selectedIcon: Icon(Icons.directions_car_rounded, color: Color(0xFF004D3D)),
               label: 'Garage',
             ),
             NavigationDestination(
               icon: Icon(Icons.person_outline_rounded),
-              selectedIcon: Icon(Icons.person_rounded, color: Color(0xFF059669)),
+              selectedIcon: Icon(Icons.person_rounded, color: Color(0xFF004D3D)),
               label: 'Account',
             ),
           ],

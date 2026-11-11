@@ -43,15 +43,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  void _fillDemo() {
-    _identifier.text = 'demo@instafuel.app';
-    _password.text = 'password123';
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       body: SafeArea(
@@ -124,38 +118,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Text('Sign In', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                     ),
-                    const SizedBox(height: AppTheme.gap16),
-
-                    // Demo Helper Box
-                    Container(
-                      padding: const EdgeInsets.all(AppTheme.gap12),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.flash_on_rounded, color: Color(0xFF059669), size: 20),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              'Developer Demo Account',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: _fillDemo,
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              foregroundColor: const Color(0xFF059669),
-                            ),
-                            child: const Text('Fill Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          ),
-                        ],
-                      ),
-                    ),
-
                     const SizedBox(height: AppTheme.gap24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,

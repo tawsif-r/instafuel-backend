@@ -40,6 +40,7 @@ class StatusChip extends StatelessWidget {
         label: s.label,
         tone: switch (s) {
           PaymentStatus.paid => StatusTone.success,
+          PaymentStatus.refunded => StatusTone.info,
           PaymentStatus.failed => StatusTone.danger,
           PaymentStatus.unpaid => StatusTone.warning,
           PaymentStatus.pending => StatusTone.neutral,

@@ -64,7 +64,7 @@ class DeliveryProgress extends StatelessWidget {
                     decoration: BoxDecoration(
                       gradient: i < current
                           ? const LinearGradient(
-                              colors: [Color(0xFF059669), Color(0xFF10B981)],
+                              colors: [Color(0xFF004D3D), Color(0xFF10B981)],
                             )
                           : null,
                       color: i >= current ? Colors.grey.withValues(alpha: 0.2) : null,
@@ -95,7 +95,7 @@ class _StepNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFF059669);
+    const activeColor = Color(0xFF004D3D);
 
     return Column(
       mainAxisSize: MainAxisSize.min,

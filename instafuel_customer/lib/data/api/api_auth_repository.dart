@@ -37,6 +37,15 @@ class ApiAuthRepository implements AuthRepository {
   Future<void> logout() async => _api.token = null;
 
   @override
+  Future<AppUser> updateProfile({required String fullName, required String phone}) async {
+    final json = await _api.put('/api/auth/profile', {
+      'fullName': fullName.trim(),
+      'phone': phone.trim(),
+    });
+    return AppUser.fromJson(json as Map<String, dynamic>);
+  }
+
+  @override
   void restoreSession(AuthSession session) => _api.token = session.token;
 
   AuthSession _start(dynamic json) {

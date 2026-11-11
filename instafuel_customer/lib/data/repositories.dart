@@ -1,8 +1,10 @@
 // Contracts between the UI and the data source.
 //
 // Screens/controllers only know these interfaces. Auth, vehicles, orders,
-// payments and corporate use the real API (data/api/) when MOCK_API is false.
+// payments and corporate use the real API (data/api/).
 // providers.dart is the single place to configure them. Nothing in features/ needs to change.
+
+import 'dart:typed_data';
 
 import '../models/corporate.dart';
 import '../models/fuel.dart';
@@ -16,6 +18,7 @@ abstract class AuthRepository {
   Future<AuthSession> login(String identifier, String password);
   Future<AuthSession> register(RegisterRequest request);
   Future<void> logout();
+  Future<AppUser> updateProfile({required String fullName, required String phone});
 
   /// Called on app start with the saved session, so later calls send its token.
   void restoreSession(AuthSession session);
@@ -27,6 +30,18 @@ abstract class VehicleRepository {
   /// Creates the vehicle when its id is empty, otherwise updates it.
   Future<Vehicle> saveVehicle(Vehicle vehicle);
   Future<void> deleteVehicle(String id);
+
+  /// Uploads (or replaces) one document file. Returns the updated vehicle.
+  Future<Vehicle> uploadDocument({
+    required String vehicleId,
+    required DocumentKind kind,
+    required List<int> bytes,
+    required String fileName,
+  });
+  Future<Vehicle> deleteDocument({required String vehicleId, required DocumentKind kind});
+
+  /// The stored file, for previewing images in the app.
+  Future<Uint8List> downloadDocument({required String vehicleId, required DocumentKind kind});
 }
 
 abstract class OrderRepository {
@@ -35,6 +50,7 @@ abstract class OrderRepository {
   Future<OrderQuote> quote(OrderDraft draft);
   Future<Order> placeOrder(OrderDraft draft);
   Future<Order> cancelOrder(String id);
+  Future<Order> progressDelivery(String id);
 }
 
 abstract class PaymentRepository {

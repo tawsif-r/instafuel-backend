@@ -70,6 +70,10 @@ class ApiOrderRepository implements OrderRepository {
   Future<Order> cancelOrder(String id) async =>
       orderFromJson(await _api.post('$_path/$id/cancel', null) as Map<String, dynamic>);
 
+  @override
+  Future<Order> progressDelivery(String id) async =>
+      orderFromJson(await _api.post('$_path/$id/progress-delivery', null) as Map<String, dynamic>);
+
   // Public for tests. corporateId isn't sent: company billing isn't in the API yet.
   static Map<String, dynamic> draftToJson(OrderDraft d) => {
         'deliveryAddress': d.address,
@@ -113,6 +117,15 @@ class ApiOrderRepository implements OrderRepository {
       timeline: [
         for (final e in json['timeline'] as List<dynamic>) OrderEvent(e['title'] as String, _date(e['at'])),
       ],
+      refund: json['refund'] != null
+          ? OrderRefund(
+              id: json['refund']['id'] as String,
+              amount: (json['refund']['amount'] as num).toDouble(),
+              status: json['refund']['status'] as String,
+              providerReference: json['refund']['providerReference'] as String?,
+              createdAt: _date(json['refund']['createdAt']),
+            )
+          : null,
     );
   }
 

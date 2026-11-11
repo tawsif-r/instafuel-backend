@@ -85,6 +85,7 @@ class Order {
     this.driverName,
     this.truckRegistration,
     this.timeline = const [],
+    this.refund,
   });
 
   final String id;
@@ -103,6 +104,7 @@ class Order {
   final String? driverName;        // filled once a driver is assigned
   final String? truckRegistration; // filled once a truck is assigned
   final List<OrderEvent> timeline;
+  final OrderRefund? refund;
 
   double get subtotal => lines.fold(0, (sum, l) => sum + l.lineTotal);
   double get total => subtotal + deliveryFee;
@@ -122,7 +124,10 @@ class Order {
     DeliveryStatus? deliveryStatus,
     PaymentStatus? paymentStatus,
     PaymentMethod? paymentMethod,
+    String? driverName,
+    String? truckRegistration,
     List<OrderEvent>? timeline,
+    OrderRefund? refund,
   }) =>
       Order(
         id: id,
@@ -138,10 +143,27 @@ class Order {
         paymentMethod: paymentMethod ?? this.paymentMethod,
         corporateId: corporateId,
         notes: notes,
-        driverName: driverName,
-        truckRegistration: truckRegistration,
+        driverName: driverName ?? this.driverName,
+        truckRegistration: truckRegistration ?? this.truckRegistration,
         timeline: timeline ?? this.timeline,
+        refund: refund ?? this.refund,
       );
+}
+
+class OrderRefund {
+  const OrderRefund({
+    required this.id,
+    required this.amount,
+    required this.status,
+    this.providerReference,
+    required this.createdAt,
+  });
+
+  final String id;
+  final double amount;
+  final String status;
+  final String? providerReference;
+  final DateTime createdAt;
 }
 
 // What the "New order" screen builds up before submitting.

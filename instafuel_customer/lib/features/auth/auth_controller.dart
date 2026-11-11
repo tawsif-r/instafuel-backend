@@ -23,7 +23,6 @@ class AuthController extends Notifier<AppUser?> {
       return null;
     }
     ref.read(authRepositoryProvider).restoreSession(saved);
-    _useMockDataFor(saved.user);
     return saved.user;
   }
 
@@ -35,23 +34,34 @@ class AuthController extends Notifier<AppUser?> {
 
   Future<void> register(RegisterRequest request) async {
     final session = await ref.read(authRepositoryProvider).register(request);
-    _useMockDataFor(session.user);
     await _start(session);
+  }
+
+  Future<void> updateProfile({required String fullName, required String phone}) async {
+    final updated = await ref.read(authRepositoryProvider).updateProfile(
+      fullName: fullName,
+      phone: phone,
+    );
+    final saved = await ref.read(sessionStoreProvider).read();
+    if (saved != null) {
+      final newSession = AuthSession(
+        token: saved.token,
+        expiresAt: saved.expiresAt,
+        user: updated,
+      );
+      await ref.read(sessionStoreProvider).save(newSession);
+    }
+    state = updated;
   }
 
   Future<void> logout() async {
     await ref.read(authRepositoryProvider).logout();
     await ref.read(sessionStoreProvider).clear();
-    ref.read(mockDatabaseProvider).currentUserId = null;
     state = null;
   }
 
   Future<void> _start(AuthSession session) async {
-    _useMockDataFor(session.user);
     await ref.read(sessionStoreProvider).save(session);
     state = session.user;
   }
-
-  // Keeps mock data scoped per user id when MOCK_API=true.
-  void _useMockDataFor(AppUser user) => ref.read(mockDatabaseProvider).currentUserId = user.id;
 }

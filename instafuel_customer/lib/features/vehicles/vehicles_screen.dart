@@ -46,7 +46,7 @@ class VehiclesScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/vehicle/new'),
-        backgroundColor: const Color(0xFF059669),
+        backgroundColor: const Color(0xFF004D3D),
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
         label: const Text('Add Vehicle / Generator', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -62,7 +62,7 @@ class VehiclesScreen extends ConsumerWidget {
               message: 'Register your private vehicle, commercial truck, or building backup generator to order doorstep fuel.',
               action: FilledButton.icon(
                 onPressed: () => context.push('/vehicle/new'),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF059669)),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF004D3D)),
                 icon: const Icon(Icons.add),
                 label: const Text('Register First Equipment'),
               ),
@@ -112,7 +112,7 @@ class VehiclesScreen extends ConsumerWidget {
                               icon: Icons.verified_rounded,
                               label: 'Verified (SOP)',
                               value: '$verifiedCount',
-                              accent: const Color(0xFF34D399),
+                              accent: const Color(0xFF00E599),
                             ),
                             Container(width: 1, height: 36, color: Colors.white24),
                             _SummaryStat(
@@ -238,10 +238,10 @@ class _VehicleCard extends StatelessWidget {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF059669).withValues(alpha: 0.12),
+                        color: const Color(0xFF004D3D).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Icon(vehicle.type.icon, color: const Color(0xFF059669), size: 26),
+                      child: Icon(vehicle.type.icon, color: const Color(0xFF004D3D), size: 26),
                     ),
                     const SizedBox(width: AppTheme.gap14),
                     Expanded(
@@ -276,17 +276,17 @@ class _VehicleCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF059669).withValues(alpha: 0.1),
+                        color: const Color(0xFF004D3D).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.local_gas_station_rounded, size: 14, color: Color(0xFF059669)),
+                          const Icon(Icons.local_gas_station_rounded, size: 14, color: Color(0xFF004D3D)),
                           const SizedBox(width: 4),
                           Text(
                             vehicle.fuelType.label,
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xFF059669)),
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xFF004D3D)),
                           ),
                         ],
                       ),
@@ -312,7 +312,7 @@ class _VehicleCard extends StatelessWidget {
                       FilledButton.icon(
                         onPressed: () => context.push('/new-order'),
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF059669),
+                          backgroundColor: const Color(0xFF004D3D),
                           foregroundColor: Colors.white,
                           minimumSize: const Size(100, 34),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

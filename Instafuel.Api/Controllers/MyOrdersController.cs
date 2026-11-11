@@ -162,6 +162,22 @@ public class MyOrdersController : ControllerBase
                 }
 
                 supplierOrder.Subtotal = supplierOrder.Items.Sum(i => i.LineTotal);
+
+                // Auto-instantiate delivery entity for logistics pipeline (SOP-OPS-001)
+                var delivery = new Delivery
+                {
+                    Status = "pending",
+                    CreatedAt = DateTime.UtcNow
+                };
+                delivery.StatusHistory.Add(new DeliveryStatusHistory
+                {
+                    Status = "pending",
+                    Notes = "Delivery order received and queued at depot",
+                    RecordedByUserId = customer.Id,
+                    CreatedAt = DateTime.UtcNow
+                });
+                supplierOrder.Deliveries.Add(delivery);
+
                 order.SupplierOrders.Add(supplierOrder);
             }
 
@@ -328,6 +344,48 @@ public class MyOrdersController : ControllerBase
                 order.UpdatedAt = DateTime.UtcNow;
             }
 
+            // When payment is successful, automatically assign bowser truck and driver to pending deliveries
+            if (payment.Status == "successful")
+            {
+                var pendingDeliveries = order.SupplierOrders
+                    .SelectMany(s => s.Deliveries)
+                    .Where(d => d.Status == "pending")
+                    .ToList();
+
+                if (pendingDeliveries.Any())
+                {
+                    var availableVehicle = await _context.Vehicles
+                        .FirstOrDefaultAsync(v => v.Status == "active" && v.IsAvailable);
+                    var availableDriver = await _context.Drivers
+                        .Include(d => d.User)
+                        .FirstOrDefaultAsync(d => d.EmploymentStatus == "active" && d.VerificationStatus == "verified" && d.IsAvailable);
+
+                    var now = DateTime.UtcNow;
+                    foreach (var d in pendingDeliveries)
+                    {
+                        d.Vehicle = availableVehicle;
+                        d.Driver = availableDriver;
+                        d.Status = "assigned";
+                        d.AssignedAt = now;
+                        d.StatusHistory.Add(new DeliveryStatusHistory
+                        {
+                            Status = "assigned",
+                            Notes = availableDriver is not null && availableVehicle is not null
+                                ? $"Assigned to driver {availableDriver.User.FullName} and bowser truck {availableVehicle.RegistrationNumber}"
+                                : "Delivery assigned to logistics fleet",
+                            RecordedByUserId = order.CustomerId,
+                            CreatedAt = now
+                        });
+                    }
+
+                    foreach (var s in order.SupplierOrders.Where(s => s.Status == "pending"))
+                    {
+                        s.Status = "accepted";
+                        s.UpdatedAt = now;
+                    }
+                }
+            }
+
             await _context.SaveChangesAsync();
             return Ok(ToPayResponse(payment));
         }
@@ -336,6 +394,117 @@ public class MyOrdersController : ControllerBase
             _logger.LogError(ex, "Failed to pay customer order {OrderId}. Operation: {Operation}", id, nameof(PayMyOrder));
             return StatusCode(StatusCodes.Status500InternalServerError,
                 new { message = "An error occurred while processing the payment." });
+        }
+    }
+
+    // Progression mechanism for delivery lifecycle and SOP §10.3 plate verification
+    [HttpPost("{id:guid}/progress-delivery")]
+    public async Task<ActionResult<MyOrderResponse>> ProgressDelivery(Guid id)
+    {
+        try
+        {
+            var order = await MyOrders().FirstOrDefaultAsync(o => o.Id == id);
+            if (order is null) return NotFound();
+
+            if (order.Status is "cancelled" or "completed")
+                return BadRequest(new { message = $"Cannot progress an order that is {order.Status}." });
+
+            var delivery = order.SupplierOrders.SelectMany(s => s.Deliveries).MaxBy(d => d.CreatedAt);
+            if (delivery is null)
+                return BadRequest(new { message = "No delivery found for this order." });
+
+            var now = DateTime.UtcNow;
+
+            switch (delivery.Status)
+            {
+                case "pending":
+                    var availableVehicle = await _context.Vehicles
+                        .FirstOrDefaultAsync(v => v.Status == "active" && v.IsAvailable);
+                    var availableDriver = await _context.Drivers
+                        .Include(d => d.User)
+                        .FirstOrDefaultAsync(d => d.EmploymentStatus == "active" && d.VerificationStatus == "verified" && d.IsAvailable);
+
+                    delivery.Vehicle = availableVehicle;
+                    delivery.Driver = availableDriver;
+                    delivery.Status = "assigned";
+                    delivery.AssignedAt = now;
+                    delivery.StatusHistory.Add(new DeliveryStatusHistory
+                    {
+                        Status = "assigned",
+                        Notes = availableDriver is not null && availableVehicle is not null
+                            ? $"Assigned to driver {availableDriver.User.FullName} and bowser truck {availableVehicle.RegistrationNumber}"
+                            : "Delivery assigned to logistics fleet",
+                        RecordedByUserId = order.CustomerId,
+                        CreatedAt = now
+                    });
+                    break;
+
+                case "assigned":
+                    delivery.Status = "dispatched";
+                    delivery.DispatchedAt = now;
+                    delivery.StatusHistory.Add(new DeliveryStatusHistory
+                    {
+                        Status = "dispatched",
+                        Notes = "Bowser truck dispatched from Tejgaon Central Fuel Depot",
+                        RecordedByUserId = order.CustomerId,
+                        CreatedAt = now
+                    });
+                    break;
+
+                case "dispatched":
+                    delivery.Status = "in_transit";
+                    delivery.StatusHistory.Add(new DeliveryStatusHistory
+                    {
+                        Status = "in_transit",
+                        Notes = "Driver is on the way to your delivery location",
+                        RecordedByUserId = order.CustomerId,
+                        CreatedAt = now
+                    });
+                    break;
+
+                case "in_transit":
+                    // SOP §10.3: Driver physically verifies registration plates before dispensing fuel
+                    foreach (var item in order.SupplierOrders.SelectMany(s => s.Items))
+                    {
+                        item.PlateVerifiedAt = now;
+                    }
+
+                    delivery.Status = "delivered";
+                    delivery.DeliveredAt = now;
+                    delivery.DeliveredQuantity = order.SupplierOrders.SelectMany(s => s.Items).Sum(i => i.Quantity);
+                    delivery.StatusHistory.Add(new DeliveryStatusHistory
+                    {
+                        Status = "delivered",
+                        Notes = "Fuel dispensed safely. Registration plates verified per SOP §10.3.",
+                        RecordedByUserId = order.CustomerId,
+                        CreatedAt = now
+                    });
+
+                    // Free up vehicle and driver
+                    if (delivery.Vehicle is not null) delivery.Vehicle.IsAvailable = true;
+                    if (delivery.Driver is not null) delivery.Driver.IsAvailable = true;
+
+                    order.Status = "completed";
+                    order.UpdatedAt = now;
+                    foreach (var s in order.SupplierOrders)
+                    {
+                        s.Status = "delivered";
+                        s.UpdatedAt = now;
+                    }
+                    break;
+
+                default:
+                    return BadRequest(new { message = $"Delivery is already {delivery.Status}." });
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(MyOrderResponse.From(order));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to progress delivery for order {OrderId}. Operation: {Operation}", id, nameof(ProgressDelivery));
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new { message = "An error occurred while updating delivery progression." });
         }
     }
 

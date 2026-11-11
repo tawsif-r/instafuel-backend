@@ -61,3 +61,5 @@ nunit-*.xml
 
 # accidentally someone installed the flutter folder in there repo, so this is a workaround
 flutter
+# Uploaded customer documents (local document storage)
+Instafuel.Api/uploads/
