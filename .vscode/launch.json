@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "InstaFuel Customer",
+            "request": "launch",
+            "type": "dart",
+            "cwd": "instafuel_customer",
+            "program": "instafuel_customer/lib/main.dart",
+            "toolArgs": [
+                "--dart-define-from-file=.env"
+            ]
+        },
+        {
+            "name": "InstaFuel Customer (Release)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release",
+            "cwd": "instafuel_customer",
+            "program": "instafuel_customer/lib/main.dart",
+            "toolArgs": [
+                "--dart-define-from-file=.env"
+            ]
+        }
+    ]
+}
