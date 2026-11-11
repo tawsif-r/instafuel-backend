@@ -1,14 +1,21 @@
-// Build-time settings, passed with --dart-define:
-//   flutter run --dart-define=API_BASE_URL=http://192.168.0.10:5033
-
 import 'package:flutter/foundation.dart';
 
-const _apiBaseUrlOverride = String.fromEnvironment('API_BASE_URL');
+/// Base URL for backend API.
+/// Injected at compile-time from `.env` file via:
+///   --dart-define-from-file=.env
+/// or via:
+///   --dart-define=API_BASE_URL=http://localhost:5033
+const _apiBaseUrlFromEnv = String.fromEnvironment('API_BASE_URL');
 
-/// Where Instafuel.Api runs. Defaults match `dotnet run` (http profile, port 5033).
+/// Where Instafuel.Api runs.
 String get apiBaseUrl {
-  if (_apiBaseUrlOverride.isNotEmpty) return _apiBaseUrlOverride;
-  // The Android emulator reaches the host machine's localhost through 10.0.2.2.
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2:5033';
+  // If provided via .env or --dart-define, use it directly (works for all platforms)
+  if (_apiBaseUrlFromEnv.isNotEmpty) return _apiBaseUrlFromEnv;
+
+  // Fallback defaults if no .env was provided during run/build:
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    // Android emulator reaches host machine through 10.0.2.2
+    return 'http://10.0.2.2:5033';
+  }
   return 'http://localhost:5033';
 }
